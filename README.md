@@ -10,8 +10,39 @@ Run `dotnet tool install -g MBW.Tools.GhStandardContent`. After this, `gh-standa
 
 ## Usage
 
-TODO
+Read more on the [blog post about managing standardized content on Github repositories](https://blog.mbwarez.dk/gh-mass-administration-content/). In short, you need a Github token and a `repos.json` file which describes your content.
 
-## Configuration
+Create a `repos.json` with the following:
 
-TODO
+```jsonc
+{
+  "content": {
+    // Define as many sets of files as you want
+    "standardContent": {
+      ".gitignore": "standard_content\\.gitignore"
+    },
+    // Each set can describe multiple files, and where they're located locally
+    "standardDotnetNuget": {
+      // To modify workflow files, you need a special scope: workflow
+      ".github/workflows/dotnet.yml": "standard_content\\dotnet.yml",
+      ".github/workflows/nuget.yml": "standard_content\\nuget.yml",
+      "Directory.Build.props": "standard_content\\Directory.Build.props"
+    }
+  },
+  "repositories": {
+    // Describe each repository, with a property indicating that a set applies.
+    "LordMike/MBW.Client.BlueRiiotApi": {
+      "standardContent": true,
+      "standardDotnetNuget": true
+    },
+    ...
+  }
+}
+
+```
+
+Run the tool with `gh-standard-content -t My_Token repos.json` to create pull requests on all repositories that are out of date.
+
+## Other options
+
+Run `gh-standard-content --help` for more parameters.
