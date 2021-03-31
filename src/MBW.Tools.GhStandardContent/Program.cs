@@ -28,7 +28,7 @@ namespace MBW.Tools.GhStandardContent
                 .CreateLogger();
 
             ParserResult<CommandlineArgs> argsResult = Parser.Default.ParseArguments<CommandlineArgs>(args);
-            if (argsResult is NotParsed<CommandlineArgs> asNotParsed)
+            if (argsResult is NotParsed<CommandlineArgs>)
             {
                 Log.Logger.Error("Unable to parse arguments, be sure to include the path to the 'repos.json' file");
 
