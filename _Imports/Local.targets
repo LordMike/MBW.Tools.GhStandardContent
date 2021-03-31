@@ -3,13 +3,13 @@
   <!-- Package -->
   <PropertyGroup>
     <PackageId>$(AssemblyName)</PackageId>
-    <Product>MBW.Tools.CsProjFormatter</Product>
+    <Product>MBW.Tools.GhStandardContent</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/LordMike/MBW.Tools.CsProjFormatter</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/LordMike/MBW.Tools.GhStandardContent</PackageProjectUrl>
   </PropertyGroup>
   
   <PropertyGroup>
-    <RepositoryUrl>https://github.com/LordMike/MBW.Tools.CsProjFormatter</RepositoryUrl>
+    <RepositoryUrl>https://github.com/LordMike/MBW.Tools.GhStandardContent</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
   
