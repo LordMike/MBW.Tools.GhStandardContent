@@ -71,7 +71,7 @@ namespace MBW.Tools.GhStandardContent
                     services
                         .AddSingleton(parsedArgs)
                         .AddSingleton(configRoot)
-                        .AddSingleton<GhStandardFileSetFactory>()
+                        .AddSingleton(x => new GhStandardFileSetFactory(x.GetRequiredService<RepositoryRoot>(), parsedArgs.RepositoryJson))
                         .AddSingleton<GhStandardContentApplier>();
                 })
                 .Build();

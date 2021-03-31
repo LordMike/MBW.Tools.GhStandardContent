@@ -10,14 +10,16 @@ namespace MBW.Tools.GhStandardContent.Client
         private readonly RepositoryRoot _config;
         private readonly Dictionary<string, (string path, string file)[]> _sets;
 
-        public GhStandardFileSetFactory(RepositoryRoot config)
+        public GhStandardFileSetFactory(RepositoryRoot config, string configFile)
         {
             _config = config;
             _sets = new Dictionary<string, (string path, string file)[]>();
 
+            string configDir = Path.GetDirectoryName(configFile);
+
             foreach ((string key, Dictionary<string, string> value) in _config.Content)
             {
-                (string Key, string Value)[] setContent = value.Select(s => (s.Key, s.Value)).ToArray();
+                (string Key, string Value)[] setContent = value.Select(s => (s.Key, Path.GetFullPath(Path.Combine(configDir, s.Value)))).ToArray();
 
                 _sets.Add(key, setContent);
             }
