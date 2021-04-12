@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -79,7 +81,31 @@ namespace MBW.Tools.GhStandardContent
             GhStandardFileSetFactory fileSetFactory = host.Services.GetRequiredService<GhStandardFileSetFactory>();
             GhStandardContentApplier applier = host.Services.GetRequiredService<GhStandardContentApplier>();
 
-            foreach ((string repository, JObject config) in configRoot.Repositories)
+            IEnumerable<KeyValuePair<string, JObject>> repos;
+
+            if (!string.IsNullOrEmpty(parsedArgs.Repository) &&
+                configRoot.Repositories.TryGetValue(parsedArgs.Repository, out var singleRepo))
+            {
+                repos = new[] { KeyValuePair.Create(parsedArgs.Repository, singleRepo) };
+            }
+            else if (!string.IsNullOrEmpty(parsedArgs.Repository))
+            {
+                // Try looking for a partial match
+                var match = configRoot.Repositories.Keys.FirstOrDefault(s =>
+                    s.Split('/').Last().Equals(parsedArgs.Repository, StringComparison.OrdinalIgnoreCase));
+
+                if (match == null)
+                {
+                    Log.Error("Unable to run for {Repository} alone", parsedArgs.Repository);
+                    return 3;
+                }
+
+                repos = new[] { KeyValuePair.Create(match, configRoot.Repositories[match]) };
+            }
+            else
+                repos = configRoot.Repositories;
+
+            foreach ((string repository, JObject config) in repos)
             {
                 GhStandardFileSet fileSet = fileSetFactory.GetFileSet(config);
                 if (fileSet.Count == 0)

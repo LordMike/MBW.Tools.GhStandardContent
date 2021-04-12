@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
 namespace MBW.Tools.GhStandardContent.Model
@@ -7,6 +8,6 @@ namespace MBW.Tools.GhStandardContent.Model
     {
         public Dictionary<string, Dictionary<string, string>> Content { get; set; }
 
-        public Dictionary<string, JObject> Repositories { get; set; }
+        public Dictionary<string, JObject> Repositories { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }

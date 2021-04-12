@@ -9,7 +9,7 @@ namespace MBW.Tools.GhStandardContent
 
         [Option("--gh-api", Hidden = true, Default = "https://api.github.com/")]
         public string GithubApi { get; set; }
-        
+
         [Option("--branch-name", Default = "feature/auto-contents")]
         public string BranchName { get; set; }
 
@@ -21,6 +21,9 @@ namespace MBW.Tools.GhStandardContent
 
         [Option("--proxy")]
         public string ProxyUrl { get; set; }
+
+        [Option('r', "--repo")]
+        public string Repository { get; set; }
 
         [Value(0, Required = true)]
         public string RepositoryJson { get; set; }
