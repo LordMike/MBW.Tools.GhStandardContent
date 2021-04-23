@@ -40,10 +40,10 @@ namespace MBW.Tools.GhStandardContent.Client
             }
 
             // Diff files
+            List<string> upToDate = new List<string>();
             Dictionary<string, byte[]> files = fileSet.GetFiles().ToDictionary(s => s.path, s => s.value);
 
             {
-                List<string> upToDate = new List<string>();
                 foreach ((string path, byte[] value) in files)
                 {
                     try
@@ -59,17 +59,14 @@ namespace MBW.Tools.GhStandardContent.Client
                     }
                 }
 
-                foreach (string path in upToDate)
-                    files.Remove(path);
-
-                if (!files.Any())
+                if (upToDate.Count == files.Count)
                 {
                     Log.Information("{Repository}: is up-to-date", repo.FullName);
                     return;
                 }
             }
 
-            foreach ((string path, _) in files)
+            foreach (string path in files.Keys.Except(upToDate))
                 Log.Information("{Repository}: '{path}' is outdated", repo.FullName, path);
 
             NewTree newTree = new NewTree();
