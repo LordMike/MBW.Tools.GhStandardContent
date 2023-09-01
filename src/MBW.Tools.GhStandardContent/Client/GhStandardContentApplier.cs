@@ -144,6 +144,13 @@ class GhStandardContentApplier
                 PullRequest newPr = await _client.Repository.PullRequest.Create(repo.Id,
                     new NewPullRequest("Auto: Updating standardized files", branchName, repo.DefaultBranch));
 
+                string[] prLabels = _arguments.PrLabels.ToArray();
+                if (prLabels is { Length: > 0 })
+                {
+                    Log.Debug("Adding labels {Labels} to pr {PrNumber}", _arguments.PrLabels, newPr.Number);
+                    await _client.Issue.Labels.AddToIssue(repo.Id, newPr.Number, prLabels);
+                }
+
                 Log.Information("{Repository}: PR created #{PrNumber} - {Title}", repo.FullName, newPr.Number,
                     newPr.Title);
             }

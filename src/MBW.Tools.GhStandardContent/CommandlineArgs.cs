@@ -1,4 +1,5 @@
-﻿using CommandLine;
+﻿using System.Collections.Generic;
+using CommandLine;
 
 namespace MBW.Tools.GhStandardContent;
 
@@ -18,6 +19,10 @@ class CommandlineArgs
 
     [Option("commit-email", Default = "AutoContents@example.org")]
     public string CommitEmail { get; set; }
+
+    [Option("labels", HelpText = "Labels to add to the PR, example: feature,dependencies", Separator = ',')]
+    
+    public IEnumerable<string> PrLabels { get; set; }
 
     [Option("proxy")]
     public string ProxyUrl { get; set; }
