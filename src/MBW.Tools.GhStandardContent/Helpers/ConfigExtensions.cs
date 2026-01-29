@@ -1,4 +1,5 @@
-﻿using System.Linq;
+using System;
+using System.Linq;
 using MBW.Tools.GhStandardContent.Client;
 using Newtonsoft.Json.Linq;
 

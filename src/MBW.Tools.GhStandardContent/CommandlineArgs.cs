@@ -5,7 +5,7 @@ namespace MBW.Tools.GhStandardContent;
 
 class CommandlineArgs
 {
-    [Option('t', "gh-token", Required = true)]
+    [Option('t', "gh-token")]
     public string GithubToken { get; set; }
 
     [Option("gh-api", Hidden = true, Default = "https://api.github.com/")]
@@ -29,6 +29,9 @@ class CommandlineArgs
 
     [Option("meta-reference", HelpText = "Free-form reference string stored in .standard_content.json meta.reference. Use empty to remove.")]
     public string MetaReference { get; set; }
+
+    [Option("local-path", HelpText = "Apply standard content to a local repo checkout instead of GitHub.")]
+    public string LocalPath { get; set; }
 
     [Option('r', "repo")]
     public string Repository { get; set; }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -39,6 +39,13 @@ class Program
 
         CommandlineArgs parsedArgs = ((Parsed<CommandlineArgs>)argsResult).Value;
 
+        bool isLocal = !string.IsNullOrEmpty(parsedArgs.LocalPath);
+        if (!isLocal && string.IsNullOrEmpty(parsedArgs.GithubToken))
+        {
+            Log.Error("Missing --gh-token for GitHub mode");
+            return 5;
+        }
+
         if (!File.Exists(parsedArgs.RepositoryJson))
         {
             Log.Logger.Error($"Unable to locate {parsedArgs.RepositoryJson}");
@@ -57,38 +64,44 @@ class Program
                 if (!string.IsNullOrEmpty(parsedArgs.ProxyUrl))
                     services.AddSingleton<IWebProxy>(_ => new WebProxy(parsedArgs.ProxyUrl));
 
-                services.AddSingleton<IGitHubClient>(provider =>
+                if (!isLocal)
                 {
-                    IWebProxy proxy = provider.GetService<IWebProxy>();
-                    SimpleJsonSerializer jsonSerializer = new SimpleJsonSerializer();
+                    services.AddSingleton<IGitHubClient>(provider =>
+                    {
+                        IWebProxy proxy = provider.GetService<IWebProxy>();
+                        SimpleJsonSerializer jsonSerializer = new SimpleJsonSerializer();
 
-                    return new GitHubClient(new Connection(new ProductHeaderValue(ClientName), new Uri(parsedArgs.GithubApi),
-                        new InMemoryCredentialStore(new Credentials(parsedArgs.GithubToken)), new HttpClientAdapter(
-                            () => new HttpClientHandler
-                            {
-                                Proxy = proxy
-                            }), jsonSerializer));
-                });
+                        return new GitHubClient(new Connection(new ProductHeaderValue(ClientName), new Uri(parsedArgs.GithubApi),
+                            new InMemoryCredentialStore(new Credentials(parsedArgs.GithubToken)), new HttpClientAdapter(
+                                () => new HttpClientHandler
+                                {
+                                    Proxy = proxy
+                                }), jsonSerializer));
+                    });
+                }
 
                 services
                     .AddSingleton(parsedArgs)
                     .AddSingleton(configRoot)
-                    .AddSingleton(x => new GhStandardFileSetFactory(x.GetRequiredService<RepositoryRoot>(), parsedArgs.RepositoryJson))
-                    .AddSingleton<GhStandardContentApplier>();
+                    .AddSingleton(x => new GhStandardFileSetFactory(x.GetRequiredService<RepositoryRoot>(), parsedArgs.RepositoryJson));
+
+                if (!isLocal)
+                    services.AddSingleton<GhStandardContentApplier>();
             })
             .Build();
 
         GhStandardFileSetFactory fileSetFactory = host.Services.GetRequiredService<GhStandardFileSetFactory>();
-        GhStandardContentApplier applier = host.Services.GetRequiredService<GhStandardContentApplier>();
+        DesiredContentBuilder desiredBuilder = new DesiredContentBuilder();
+        GhStandardContentApplier applier = isLocal ? null : host.Services.GetRequiredService<GhStandardContentApplier>();
 
         IEnumerable<KeyValuePair<string, JObject>> repos;
 
-        if (!string.IsNullOrEmpty(parsedArgs.Repository) &&
+        if (!isLocal && !string.IsNullOrEmpty(parsedArgs.Repository) &&
             configRoot.Repositories.TryGetValue(parsedArgs.Repository, out var singleRepo))
         {
             repos = new[] { KeyValuePair.Create(parsedArgs.Repository, singleRepo) };
         }
-        else if (!string.IsNullOrEmpty(parsedArgs.Repository))
+        else if (!isLocal && !string.IsNullOrEmpty(parsedArgs.Repository))
         {
             // Try looking for a partial match
             var match = configRoot.Repositories.Keys.FirstOrDefault(s =>
@@ -102,8 +115,29 @@ class Program
 
             repos = new[] { KeyValuePair.Create(match, configRoot.Repositories[match]) };
         }
-        else
+        else if (!isLocal)
             repos = configRoot.Repositories;
+        else
+        {
+            string localRepoName;
+            try
+            {
+                localRepoName = ResolveLocalRepoName(parsedArgs, configRoot);
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Unable to resolve local repo name");
+                return 4;
+            }
+
+            if (!configRoot.Repositories.TryGetValue(localRepoName, out JObject localConfig))
+            {
+                Log.Error("Unable to find local repo {Repository} in repos.json", localRepoName);
+                return 4;
+            }
+
+            repos = new[] { KeyValuePair.Create(localRepoName, localConfig) };
+        }
 
         foreach ((string repository, JObject config) in repos)
         {
@@ -119,11 +153,48 @@ class Program
             string repoOrg = repoParts[0];
             string repoName = repoParts[1];
 
-            Log.Information("Applying {Count} files to {Organization} / {Repository}", fileSet.Count, repoOrg, repoName);
+            DesiredContent desired = desiredBuilder.Build(repository, fileSet, parsedArgs.MetaReference);
 
-            await applier.Apply(repoOrg, repoName, fileSet);
+            if (isLocal)
+            {
+                LocalContentApplier localApplier = new LocalContentApplier(parsedArgs.LocalPath);
+                await localApplier.Apply(repository, desired);
+            }
+            else
+            {
+                Log.Information("Applying {Count} files to {Organization} / {Repository}", fileSet.Count, repoOrg, repoName);
+                await applier.Apply(repository, desired);
+            }
         }
 
         return 0;
+    }
+
+    private static string ResolveLocalRepoName(CommandlineArgs args, RepositoryRoot configRoot)
+    {
+        if (!string.IsNullOrEmpty(args.Repository))
+        {
+            if (args.Repository.Contains('/'))
+                return args.Repository;
+
+            string match = configRoot.Repositories.Keys.FirstOrDefault(s =>
+                s.Split('/').Last().Equals(args.Repository, StringComparison.OrdinalIgnoreCase));
+            if (match == null)
+                throw new Exception($"Repo '{args.Repository}' not found in repos.json");
+
+            return match;
+        }
+
+        string folderName = new DirectoryInfo(args.LocalPath).Name;
+        string[] matches = configRoot.Repositories.Keys
+            .Where(s => s.Split('/').Last().Equals(folderName, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (matches.Length == 0)
+            throw new Exception($"Repo for folder '{folderName}' not found in repos.json");
+        if (matches.Length > 1)
+            throw new Exception($"Folder name '{folderName}' matches multiple repos in repos.json");
+
+        return matches[0];
     }
 }
