@@ -13,6 +13,8 @@ static class ConfigExtensions
             .Where(name => repositoryConfig.TryGetValue(name, out JToken token) && token.Value<bool>())
             .ToArray();
 
-        return fileSetFactory.GetConfig(namesToApply);
+        GhStandardFileSet set = fileSetFactory.GetConfig(namesToApply);
+        set.ProfilesUsed = namesToApply.OrderBy(s => s, StringComparer.Ordinal).ToArray();
+        return set;
     }
 }

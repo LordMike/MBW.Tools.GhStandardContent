@@ -9,6 +9,8 @@ class GhStandardFileSet
 {
     private readonly Dictionary<string, byte[]> _desiredContent;
 
+    public IReadOnlyList<string> ProfilesUsed { get; set; } = Array.Empty<string>();
+
     public int Count => _desiredContent.Count;
 
     public GhStandardFileSet()

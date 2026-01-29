@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LordMike/MBW.Tools.GhStandardContent/spec/StandardContent.json",
+  "title": ".standard_content.json",
+  "type": "object",
+  "required": [
+    "meta"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "repo",
+        "profiles"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "repo": { "type": "string" },
+        "last_updated": { "type": "string", "format": "date-time" },
+        "profiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "reference": { "type": "string" }
+      }
+    }
+  },
+  "examples": [
+    {
+      "meta": {
+        "repo": "LordMike/MBW.Client.BlueRiiotApi",
+        "last_updated": "2026-01-29T12:34:56Z",
+        "profiles": [
+          "standardContent",
+          "standardDotnetNuget"
+        ],
+        "files": [
+          ".gitignore",
+          ".gitattributes",
+          ".github/workflows/dotnet.yml",
+          ".github/workflows/nuget.yml",
+          "Directory.Build.props"
+        ],
+        "reference": "Managed by https://github.com/LordMike/MBW.Tools.GhStandardContent"
+      }
+    }
+  ]
+}

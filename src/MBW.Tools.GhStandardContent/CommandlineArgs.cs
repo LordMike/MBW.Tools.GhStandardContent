@@ -27,6 +27,9 @@ class CommandlineArgs
     [Option("proxy")]
     public string ProxyUrl { get; set; }
 
+    [Option("meta-reference", HelpText = "Free-form reference string stored in .standard_content.json meta.reference. Use empty to remove.")]
+    public string MetaReference { get; set; }
+
     [Option('r', "repo")]
     public string Repository { get; set; }
 

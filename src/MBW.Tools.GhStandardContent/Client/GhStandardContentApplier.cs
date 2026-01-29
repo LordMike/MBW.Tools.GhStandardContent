@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using MBW.Tools.GhStandardContent.Helpers;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Octokit;
 using Serilog;
 
@@ -15,6 +18,8 @@ class GhStandardContentApplier
         ".gitignore",
         ".dockerignore"
     };
+
+    private const string MetaFilePath = ".standard_content.json";
 
     private readonly string _branchNameRef;
     private readonly IGitHubClient _client;
@@ -74,7 +79,22 @@ class GhStandardContentApplier
                     return null;
                 }, files);
 
-                if (outdated.All(x => x == null))
+                bool otherChanges = outdated.Any(x => x != null);
+
+                JObject existingMeta = await TryReadMeta(owner, repository, checkBranch);
+                JObject originalMeta = existingMeta != null ? (JObject)existingMeta.DeepClone() : null;
+                string[] managedFiles = files.Keys
+                    .Where(s => !string.Equals(s, MetaFilePath, StringComparison.Ordinal))
+                    .OrderBy(s => s, StringComparer.Ordinal)
+                    .ToArray();
+
+                JObject metaRoot = BuildMeta(repo.FullName, fileSet.ProfilesUsed, managedFiles, existingMeta, otherChanges, _arguments.MetaReference);
+                byte[] metaBytes = Encoding.UTF8.GetBytes(metaRoot.ToString(Formatting.Indented));
+                Utility.NormalizeNewlines(ref metaBytes);
+                files[MetaFilePath] = metaBytes;
+
+                bool metaOutdated = originalMeta == null || !JToken.DeepEquals(originalMeta, metaRoot);
+                if (!otherChanges && !metaOutdated)
                 {
                     Log.Information("{Repository}: is up-to-date", repo.FullName);
                     return;
@@ -82,6 +102,9 @@ class GhStandardContentApplier
 
                 foreach (string path in outdated.Where(s => s != null))
                     Log.Information("{Repository}: '{path}' is outdated", repo.FullName, path);
+
+                if (metaOutdated)
+                    Log.Information("{Repository}: '{path}' is outdated", repo.FullName, MetaFilePath);
             }
 
             NewTree newTree = new NewTree();
@@ -168,6 +191,45 @@ class GhStandardContentApplier
                 "Unable to interact with Github - perhaps the token used does not have the proper scopes? (ensure you have 'repo' and 'workflow')",
                 e);
         }
+    }
+
+    private async Task<JObject> TryReadMeta(string owner, string repository, string branch)
+    {
+        try
+        {
+            byte[] existing = await _client.Repository.Content.GetRawContentByRef(owner, repository, MetaFilePath, branch);
+            string json = Encoding.UTF8.GetString(existing);
+            return JObject.Parse(json);
+        }
+        catch (NotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private static JObject BuildMeta(string repoFullName, IReadOnlyList<string> profiles, IEnumerable<string> managedFiles, JObject existingMeta, bool updateTimestamp, string metaReference)
+    {
+        JObject root = existingMeta != null ? (JObject)existingMeta.DeepClone() : new JObject();
+        JObject meta = root["meta"] as JObject ?? new JObject();
+
+        meta["repo"] = repoFullName;
+        meta["profiles"] = new JArray(profiles ?? Array.Empty<string>());
+        meta["files"] = new JArray(managedFiles ?? Array.Empty<string>());
+
+        if (updateTimestamp)
+            meta["last_updated"] = DateTimeOffset.UtcNow.ToString("O");
+
+        if (metaReference != null)
+        {
+            if (metaReference.Length == 0)
+                meta.Remove("reference");
+            else
+                meta["reference"] = metaReference;
+        }
+
+        root["meta"] = meta;
+
+        return root;
     }
 
     private async Task AppendLocalOverrides(string owner, string repository, string branch, Dictionary<string, byte[]> files)

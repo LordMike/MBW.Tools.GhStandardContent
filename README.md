@@ -12,6 +12,8 @@ Run `dotnet tool install -g MBW.Tools.GhStandardContent`. After this, `gh-standa
 
 Read more on the [blog post about managing standardized content on Github repositories](https://blog.mbwarez.dk/gh-mass-administration-content/). In short, you need a Github token and a `repos.json` file which describes your content.
 
+JSON schema: `spec/StandardContent.json`
+
 Create a `repos.json` with the following:
 
 ```jsonc
