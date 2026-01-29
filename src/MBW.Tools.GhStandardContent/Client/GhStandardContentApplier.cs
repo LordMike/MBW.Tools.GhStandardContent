@@ -10,6 +10,12 @@ namespace MBW.Tools.GhStandardContent.Client;
 
 class GhStandardContentApplier
 {
+    private static readonly HashSet<string> LocalAppendFiles = new(StringComparer.Ordinal)
+    {
+        ".gitignore",
+        ".dockerignore"
+    };
+
     private readonly string _branchNameRef;
     private readonly IGitHubClient _client;
     private readonly CommandlineArgs _arguments;
@@ -45,6 +51,7 @@ class GhStandardContentApplier
 
             // Diff files
             Dictionary<string, byte[]> files = fileSet.GetFiles().ToDictionary(s => s.path, s => s.value);
+            await AppendLocalOverrides(owner, repository, checkBranch, files);
 
             {
                 var outdated = await ParallelQueue.RunParallel(async (input, _) =>
@@ -160,6 +167,49 @@ class GhStandardContentApplier
             throw new Exception(
                 "Unable to interact with Github - perhaps the token used does not have the proper scopes? (ensure you have 'repo' and 'workflow')",
                 e);
+        }
+    }
+
+    private async Task AppendLocalOverrides(string owner, string repository, string branch, Dictionary<string, byte[]> files)
+    {
+        foreach (string path in files.Keys.ToArray())
+        {
+            if (!LocalAppendFiles.Contains(path))
+                continue;
+
+            // Only repo root files
+            if (path.Contains('/') || path.Contains('\\'))
+                continue;
+
+            string localPath = $"_Local/{path}";
+            try
+            {
+                byte[] local = await _client.Repository.Content.GetRawContentByRef(owner, repository, localPath, branch);
+                Utility.NormalizeNewlines(ref local);
+
+                byte[] standard = files[path];
+                Utility.NormalizeNewlines(ref standard);
+
+                if (local.Length == 0)
+                    continue;
+
+                bool needsNewline = standard.Length > 0 && standard[^1] != (byte)'\n';
+                int extra = needsNewline ? 1 : 0;
+                byte[] merged = new byte[standard.Length + extra + local.Length];
+                Buffer.BlockCopy(standard, 0, merged, 0, standard.Length);
+                int offset = standard.Length;
+                if (needsNewline)
+                {
+                    merged[offset] = (byte)'\n';
+                    offset++;
+                }
+                Buffer.BlockCopy(local, 0, merged, offset, local.Length);
+
+                files[path] = merged;
+            }
+            catch (NotFoundException)
+            {
+            }
         }
     }
 }
