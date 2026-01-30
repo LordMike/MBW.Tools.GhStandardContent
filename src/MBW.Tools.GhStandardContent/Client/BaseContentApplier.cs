@@ -15,7 +15,9 @@ abstract class BaseContentApplier
     private static readonly Dictionary<string, string> LocalOverrideMap = new(StringComparer.Ordinal)
     {
         [".gitignore"] = "_Local/.gitignore",
-        [".dockerignore"] = "_Local/.dockerignore"
+        [".gitattributes"] = "_Local/.gitattributes",
+        [".dockerignore"] = "_Local/.dockerignore",
+        [".editorconfig"] = "_Local/.editorconfig"
     };
 
     public async Task Apply(string repoFullName, DesiredContent desired)
