@@ -158,12 +158,12 @@ class Program
             if (isLocal)
             {
                 LocalContentApplier localApplier = new LocalContentApplier(parsedArgs.LocalPath);
-                await localApplier.Apply(repository, desired);
+                await localApplier.Apply(repository, desired, parsedArgs.RemovalMode);
             }
             else
             {
                 Log.Information("Applying {Count} files to {Organization} / {Repository}", fileSet.Count, repoOrg, repoName);
-                await applier.Apply(repository, desired);
+                await applier.Apply(repository, desired, parsedArgs.RemovalMode);
             }
         }
 

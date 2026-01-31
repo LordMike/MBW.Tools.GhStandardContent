@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MBW.Tools.GhStandardContent;
 using MBW.Tools.GhStandardContent.Helpers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -20,7 +21,7 @@ abstract class BaseContentApplier
         [".editorconfig"] = "_Local/.editorconfig"
     };
 
-    public async Task Apply(string repoFullName, DesiredContent desired)
+    public async Task Apply(string repoFullName, DesiredContent desired, RemovalMode? removalMode)
     {
         // Build desired file map for this repo.
         Dictionary<string, byte[]> files = new Dictionary<string, byte[]>(desired.Files, StringComparer.Ordinal);
@@ -63,6 +64,26 @@ abstract class BaseContentApplier
         JObject existingMeta = TryParseMeta(current.TryGetValue(MetaBuilder.MetaFilePath, out byte[] metaBytes) ? metaBytes : null);
         JObject originalMeta = existingMeta != null ? (JObject)existingMeta.DeepClone() : null;
 
+        string[] removedManaged = GetRemovedManagedFiles(existingMeta, desired.Meta.ManagedFiles);
+        if (removedManaged.Length > 0 && removalMode == null)
+        {
+            Log.Error(
+                "{Repository}: {Count} files are no longer managed; rerun with --removal-mode keep or --removal-mode remove",
+                repoFullName, removedManaged.Length);
+            throw new InvalidOperationException("Removal mode required to handle unmanaged files");
+        }
+
+        if (removedManaged.Length > 0)
+        {
+            string action = removalMode == RemovalMode.Remove ? "removing" : "keeping";
+            foreach (string path in removedManaged)
+                Log.Information("{Repository}: '{path}' is no longer managed ({Action})", repoFullName, path, action);
+        }
+
+        IReadOnlyCollection<string> removalsToApply = removalMode == RemovalMode.Remove
+            ? removedManaged
+            : Array.Empty<string>();
+
         // First build meta without touching last_updated to detect real meta drift.
         JObject metaRoot = MetaBuilder.Build(existingMeta, desired.Meta, false);
         bool metaOutdated = changed.Count > 0 || originalMeta == null || !JToken.DeepEquals(originalMeta, metaRoot);
@@ -77,7 +98,7 @@ abstract class BaseContentApplier
         if (metaOutdated)
             changed.Add(MetaBuilder.MetaFilePath);
 
-        if (changed.Count == 0)
+        if (changed.Count == 0 && removalsToApply.Count == 0)
         {
             Log.Information("{Repository}: is up-to-date", repoFullName);
             return;
@@ -87,12 +108,12 @@ abstract class BaseContentApplier
             Log.Information("{Repository}: '{path}' is outdated", repoFullName, path);
 
         // Apply the full desired file set in a single operation.
-        await ApplyFiles(repoFullName, files);
+        await ApplyFiles(repoFullName, files, removalsToApply);
     }
 
     protected abstract Task<Dictionary<string, byte[]>> FetchFiles(string repoFullName, IEnumerable<string> paths);
 
-    protected abstract Task ApplyFiles(string repoFullName, Dictionary<string, byte[]> files);
+    protected abstract Task ApplyFiles(string repoFullName, Dictionary<string, byte[]> files, IReadOnlyCollection<string> removals);
 
     private void AppendLocalOverrides(Dictionary<string, byte[]> files, Dictionary<string, byte[]> current)
     {
@@ -131,5 +152,23 @@ abstract class BaseContentApplier
 
         string json = Encoding.UTF8.GetString(metaBytes);
         return JObject.Parse(json);
+    }
+
+    private static string[] GetRemovedManagedFiles(JObject existingMeta, IEnumerable<string> desiredManaged)
+    {
+        if (existingMeta == null)
+            return Array.Empty<string>();
+
+        JArray previous = existingMeta["meta"]?["files"] as JArray;
+        if (previous == null)
+            return Array.Empty<string>();
+
+        HashSet<string> desired = new HashSet<string>(desiredManaged ?? Array.Empty<string>(), StringComparer.Ordinal);
+        return previous
+            .Select(token => token.Value<string>())
+            .Where(path => !string.IsNullOrEmpty(path) && !desired.Contains(path))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
     }
 }

@@ -80,7 +80,7 @@ class GhStandardContentApplier : BaseContentApplier
         return results.ToDictionary(k => k.Key, v => v.Value, StringComparer.Ordinal);
     }
 
-    protected override async Task ApplyFiles(string repoFullName, Dictionary<string, byte[]> files)
+    protected override async Task ApplyFiles(string repoFullName, Dictionary<string, byte[]> files, IReadOnlyCollection<string> removals)
     {
         await EnsureRepo(repoFullName);
 
@@ -108,6 +108,20 @@ class GhStandardContentApplier : BaseContentApplier
 
         foreach (NewTreeItem newTreeItem in newTreeItems)
             newTree.Tree.Add(newTreeItem);
+
+        if (removals.Count > 0)
+        {
+            foreach (string path in removals.Distinct(StringComparer.Ordinal))
+            {
+                newTree.Tree.Add(new NewTreeItem
+                {
+                    Type = TreeType.Blob,
+                    Mode = "100644",
+                    Path = path,
+                    Sha = null
+                });
+            }
+        }
 
         Reference headReference = await _client.Git.Reference.Get(_repo.Id, $"heads/{_repo.DefaultBranch}");
         string headCommit = headReference.Object.Sha;

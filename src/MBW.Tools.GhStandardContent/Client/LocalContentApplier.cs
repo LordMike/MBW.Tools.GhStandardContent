@@ -37,8 +37,18 @@ class LocalContentApplier : BaseContentApplier
         return Task.FromResult(results);
     }
 
-    protected override Task ApplyFiles(string repoFullName, Dictionary<string, byte[]> files)
+    protected override Task ApplyFiles(string repoFullName, Dictionary<string, byte[]> files, IReadOnlyCollection<string> removals)
     {
+        if (removals.Count > 0)
+        {
+            foreach (string path in removals.Distinct(StringComparer.Ordinal))
+            {
+                string fullPath = Path.Combine(_repoPath, path);
+                if (File.Exists(fullPath))
+                    File.Delete(fullPath);
+            }
+        }
+
         foreach ((string path, byte[] desiredBytes) in files)
         {
             string fullPath = Path.Combine(_repoPath, path);

@@ -30,6 +30,9 @@ class CommandlineArgs
     [Option("meta-reference", HelpText = "Free-form reference string stored in .standard_content.json meta.reference. Use empty to remove.")]
     public string MetaReference { get; set; }
 
+    [Option("removal-mode", HelpText = "Handling for previously managed files that are no longer in the desired set. Values: Keep, Remove.")]
+    public RemovalMode? RemovalMode { get; set; }
+
     [Option("local-path", HelpText = "Apply standard content to a local repo checkout instead of GitHub.")]
     public string LocalPath { get; set; }
 
