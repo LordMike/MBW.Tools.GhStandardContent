@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using JetBrains.Annotations;
 using MBW.Tools.GhStandardContent.Client;
 using Newtonsoft.Json.Linq;
 
@@ -9,18 +10,15 @@ static class MetaBuilder
 {
     public const string MetaFilePath = ".standard_content.json";
 
-    public static JObject Build(JObject existingMeta, MetaInfo metaInfo, bool updateTimestamp)
+    public static JObject Build([CanBeNull] JObject metaObject, MetaInfo metaInfo)
     {
-        JObject root = existingMeta != null ? (JObject)existingMeta.DeepClone() : new JObject();
+        JObject root = metaObject ?? new JObject();
         JObject meta = root["meta"] as JObject ?? new JObject();
 
         root["$schema"] = "https://github.com/LordMike/MBW.Tools.GhStandardContent/spec/StandardContent.json";
         meta["repo"] = metaInfo.RepoFullName;
         meta["profiles"] = new JArray(metaInfo.Profiles ?? Array.Empty<string>());
         meta["files"] = new JArray(metaInfo.ManagedFiles ?? Array.Empty<string>());
-
-        if (updateTimestamp)
-            meta["last_updated"] = DateTimeOffset.UtcNow.ToString("O");
 
         if (metaInfo.MetaReference != null)
         {
@@ -32,5 +30,11 @@ static class MetaBuilder
 
         root["meta"] = meta;
         return root;
+    }
+
+    public static void SetTimestamp(JObject metaObject)
+    {
+        JObject meta = (JObject)metaObject["meta"];
+        meta["last_updated"] = DateTimeOffset.UtcNow.ToString("O");
     }
 }

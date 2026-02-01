@@ -52,13 +52,11 @@ class Program
             return 2;
         }
 
-        RepositoryRoot configRoot = JsonConvert.DeserializeObject<RepositoryRoot>(await File.ReadAllTextAsync(parsedArgs.RepositoryJson));
+        RepositoryRoot configRoot =
+            JsonConvert.DeserializeObject<RepositoryRoot>(await File.ReadAllTextAsync(parsedArgs.RepositoryJson));
 
         IHost host = new HostBuilder()
-            .ConfigureLogging(loggingBuilder =>
-            {
-                loggingBuilder.AddSerilog(Log.Logger);
-            })
+            .ConfigureLogging(loggingBuilder => { loggingBuilder.AddSerilog(Log.Logger); })
             .ConfigureServices(services =>
             {
                 if (!string.IsNullOrEmpty(parsedArgs.ProxyUrl))
@@ -71,28 +69,30 @@ class Program
                         IWebProxy proxy = provider.GetService<IWebProxy>();
                         SimpleJsonSerializer jsonSerializer = new SimpleJsonSerializer();
 
-                        return new GitHubClient(new Connection(new ProductHeaderValue(ClientName), new Uri(parsedArgs.GithubApi),
-                            new InMemoryCredentialStore(new Credentials(parsedArgs.GithubToken)), new HttpClientAdapter(
-                                () => new HttpClientHandler
-                                {
-                                    Proxy = proxy
-                                }), jsonSerializer));
+                        return new GitHubClient(new Connection(new ProductHeaderValue(ClientName),
+                            new Uri(parsedArgs.GithubApi),
+                            new InMemoryCredentialStore(new Credentials(parsedArgs.GithubToken)),
+                            new HttpClientAdapter(() => new HttpClientHandler
+                            {
+                                Proxy = proxy
+                            }), jsonSerializer));
                     });
                 }
 
                 services
                     .AddSingleton(parsedArgs)
                     .AddSingleton(configRoot)
-                    .AddSingleton(x => new GhStandardFileSetFactory(x.GetRequiredService<RepositoryRoot>(), parsedArgs.RepositoryJson));
+                    .AddSingleton(x =>
+                        new GhStandardFileSetFactory(x.GetRequiredService<RepositoryRoot>(),
+                            parsedArgs.RepositoryJson));
 
                 if (!isLocal)
-                    services.AddSingleton<GhStandardContentApplier>();
+                    services.AddTransient<GhStandardContentApplier>();
             })
             .Build();
 
         GhStandardFileSetFactory fileSetFactory = host.Services.GetRequiredService<GhStandardFileSetFactory>();
         DesiredContentBuilder desiredBuilder = new DesiredContentBuilder();
-        GhStandardContentApplier applier = isLocal ? null : host.Services.GetRequiredService<GhStandardContentApplier>();
 
         IEnumerable<KeyValuePair<string, JObject>> repos;
 
@@ -162,6 +162,7 @@ class Program
             }
             else
             {
+                GhStandardContentApplier applier = host.Services.GetRequiredService<GhStandardContentApplier>();
                 Log.Information("Applying {Count} files to {Organization} / {Repository}", fileSet.Count, repoOrg, repoName);
                 await applier.Apply(repository, desired, parsedArgs.RemovalMode);
             }

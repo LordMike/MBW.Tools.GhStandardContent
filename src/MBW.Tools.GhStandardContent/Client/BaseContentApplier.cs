@@ -61,10 +61,10 @@ abstract class BaseContentApplier
         }
 
         // Build/update meta and treat it as a managed file for diff/apply.
-        JObject existingMeta = TryParseMeta(current.TryGetValue(MetaBuilder.MetaFilePath, out byte[] metaBytes) ? metaBytes : null);
-        JObject originalMeta = existingMeta != null ? (JObject)existingMeta.DeepClone() : null;
+        JObject metaObject = TryParseMeta(current.GetValueOrDefault(MetaBuilder.MetaFilePath));
+        JObject originalMeta = (JObject)metaObject?.DeepClone();
 
-        string[] removedManaged = GetRemovedManagedFiles(existingMeta, desired.Meta.ManagedFiles);
+        string[] removedManaged = GetRemovedManagedFiles(metaObject, desired.Meta.ManagedFiles);
         if (removedManaged.Length > 0 && removalMode == null)
         {
             Log.Error(
@@ -85,13 +85,14 @@ abstract class BaseContentApplier
             : Array.Empty<string>();
 
         // First build meta without touching last_updated to detect real meta drift.
-        JObject metaRoot = MetaBuilder.Build(existingMeta, desired.Meta, false);
-        bool metaOutdated = changed.Count > 0 || originalMeta == null || !JToken.DeepEquals(originalMeta, metaRoot);
+        metaObject = MetaBuilder.Build(metaObject, desired.Meta);
+        bool metaOutdated = changed.Count > 0 || originalMeta == null || !JToken.DeepEquals(originalMeta, metaObject);
 
         // If meta drifted (or other files changed), update last_updated and rebuild.
         if (metaOutdated)
-            metaRoot = MetaBuilder.Build(existingMeta, desired.Meta, true);
-        byte[] newMetaBytes = Encoding.UTF8.GetBytes(metaRoot.ToString(Formatting.Indented));
+            MetaBuilder.SetTimestamp(metaObject);
+
+        byte[] newMetaBytes = Encoding.UTF8.GetBytes(metaObject.ToString(Formatting.Indented));
         Utility.NormalizeNewlines(ref newMetaBytes);
         files[MetaBuilder.MetaFilePath] = newMetaBytes;
 
@@ -113,7 +114,8 @@ abstract class BaseContentApplier
 
     protected abstract Task<Dictionary<string, byte[]>> FetchFiles(string repoFullName, IEnumerable<string> paths);
 
-    protected abstract Task ApplyFiles(string repoFullName, Dictionary<string, byte[]> files, IReadOnlyCollection<string> removals);
+    protected abstract Task ApplyFiles(string repoFullName, Dictionary<string, byte[]> files,
+        IReadOnlyCollection<string> removals);
 
     private void AppendLocalOverrides(Dictionary<string, byte[]> files, Dictionary<string, byte[]> current)
     {
@@ -139,6 +141,7 @@ abstract class BaseContentApplier
                 merged[offset] = (byte)'\n';
                 offset++;
             }
+
             Buffer.BlockCopy(local, 0, merged, offset, local.Length);
 
             files[path] = merged;
