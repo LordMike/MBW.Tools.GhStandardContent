@@ -165,7 +165,7 @@ class GhStandardContentApplier : BaseContentApplier
             PullRequest newPr = await _client.Repository.PullRequest.Create(_repo.Id,
                 new NewPullRequest("Auto: Updating standardized files", _arguments.BranchName, _repo.DefaultBranch));
 
-            string[] prLabels = _arguments.PrLabels.ToArray();
+            string[] prLabels = (_arguments.PrLabels ?? Enumerable.Empty<string>()).ToArray();
             if (prLabels is { Length: > 0 })
             {
                 Log.Debug("Adding labels {Labels} to pr {PrNumber}", _arguments.PrLabels, newPr.Number);

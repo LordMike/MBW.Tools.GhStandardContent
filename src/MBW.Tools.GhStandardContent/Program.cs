@@ -30,8 +30,12 @@ class Program
             .CreateLogger();
 
         ParserResult<CommandlineArgs> argsResult = Parser.Default.ParseArguments<CommandlineArgs>(args);
-        if (argsResult is NotParsed<CommandlineArgs>)
+        if (argsResult is NotParsed<CommandlineArgs> notParsed)
         {
+            if (notParsed.Errors.Any(error =>
+                    error.Tag is ErrorType.HelpRequestedError or ErrorType.VersionRequestedError))
+                return 0;
+
             Log.Logger.Error("Unable to parse arguments, be sure to include the path to the 'repos.json' file");
 
             return 1;
