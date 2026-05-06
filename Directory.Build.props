@@ -4,7 +4,7 @@
     <LangVersion>latest</LangVersion>
     <DefaultTargetFramework>net10.0</DefaultTargetFramework>
   </PropertyGroup>
-
+  
   <!-- Common NuGet properties -->
   <PropertyGroup>
     <Authors>LordMike</Authors>
@@ -22,25 +22,25 @@
     <DebugType>portable</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-
+    
     <MinVerTagPrefix>v</MinVerTagPrefix>
-
+    
     <!-- Github packages does not support symbols, so we embed pdbs in nupkg (https://github.community/t/does-github-packages-dotnet-nuget-supports-to-publish-snupkg/123286/6) -->
     <AllowedOutputExtensionsInPackageBuildOutputFolder Condition="'$(Configuration)'=='Debug'">$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
-
+  
   <!-- Performance -->
   <PropertyGroup>
     <CopyRetryCount>1</CopyRetryCount>
     <CopyRetryDelayMilliseconds>500</CopyRetryDelayMilliseconds>
   </PropertyGroup>
-
+  
   <ItemGroup>
     <!-- Private packages, for builds only, not to be included in dependencies -->
     <PackageReference Include="Jetbrains.Annotations" Version="2025.2.4" PrivateAssets="all" />
     <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="all" />
   </ItemGroup>
-
+  
   <!-- Sourcelink -->
   <PropertyGroup>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
