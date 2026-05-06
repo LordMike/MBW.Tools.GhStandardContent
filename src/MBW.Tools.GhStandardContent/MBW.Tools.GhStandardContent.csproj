@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-        <Description>.NET global tool to standardize content in Github repositories</Description>
+    <Description>.NET global tool to standardize content in Github repositories</Description>
     <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
   </PropertyGroup>
 
