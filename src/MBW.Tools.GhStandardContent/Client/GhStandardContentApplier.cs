@@ -1,8 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Linq;
 using System.Threading.Tasks;
 using MBW.Tools.GhStandardContent.Helpers;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Octokit;
 using Serilog;
 
@@ -129,10 +135,10 @@ class GhStandardContentApplier : BaseContentApplier
         TreeResponse previousTree = await _client.Git.Tree.Get(_repo.Id, headReference.Ref);
         newTree.BaseTree = previousTree.Sha;
 
-        TreeResponse newTreeResponse = await _client.Git.Tree.Create(_repo.Id, newTree);
+        string newTreeSha = await CreateTree(newTree);
 
         Commit createdCommit = await _client.Git.Commit.Create(_repo.Id,
-            new NewCommit("Updating standard content files for repository", newTreeResponse.Sha, headCommit)
+            new NewCommit("Updating standard content files for repository", newTreeSha, headCommit)
             {
                 Author = new Committer(_arguments.CommitAuthor, _arguments.CommitEmail, DateTimeOffset.UtcNow)
             });
@@ -175,6 +181,76 @@ class GhStandardContentApplier : BaseContentApplier
             Log.Information("{Repository}: PR created #{PrNumber} - {Title}", _repo.FullName, newPr.Number,
                 newPr.Title);
         }
+    }
+
+    private async Task<string> CreateTree(NewTree newTree)
+    {
+        JObject requestBody = BuildCreateTreeRequest(newTree);
+
+        using HttpClientHandler handler = new HttpClientHandler();
+        if (!string.IsNullOrWhiteSpace(_arguments.ProxyUrl))
+            handler.Proxy = new WebProxy(_arguments.ProxyUrl);
+
+        using HttpClient httpClient = new HttpClient(handler);
+        using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post,
+            new Uri(_client.Connection.BaseAddress,
+                $"repos/{Uri.EscapeDataString(_repo.Owner.Login)}/{Uri.EscapeDataString(_repo.Name)}/git/trees"));
+
+        request.Headers.UserAgent.ParseAdd("mbwarez-sc-client");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _arguments.GithubToken);
+        request.Content = new StringContent(requestBody.ToString(Formatting.None), Encoding.UTF8, "application/json");
+
+        using HttpResponseMessage response = await httpClient.SendAsync(request);
+        string responseBody = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(
+                $"GitHub create-tree request failed with HTTP {(int)response.StatusCode}: {responseBody}",
+                null, response.StatusCode);
+
+        JObject responseJson = JObject.Parse(responseBody);
+        return responseJson.Value<string>("sha")
+               ?? throw new InvalidOperationException("GitHub create-tree response did not contain a SHA");
+    }
+
+    private static JObject BuildCreateTreeRequest(NewTree newTree)
+    {
+        JArray treeItems = new JArray();
+        foreach (NewTreeItem item in newTree.Tree)
+        {
+            JObject treeItem = new JObject
+            {
+                ["path"] = item.Path,
+                ["mode"] = item.Mode,
+                ["type"] = item.Type.ToString().ToLowerInvariant()
+            };
+
+            if (item.Sha != null && item.Content != null)
+                throw new InvalidOperationException($"Tree item '{item.Path}' has both a SHA and content");
+
+            if (item.Sha != null)
+                treeItem["sha"] = item.Sha;
+            else if (item.Content != null)
+                treeItem["content"] = item.Content;
+            else
+                // Octokit 7.x serializes a null NewTreeItem.Sha as an empty string. GitHub requires
+                // an explicit JSON null to delete an entry, so this request is serialized manually.
+                // Tracked upstream:
+                // https://github.com/octokit/dotnet-sdk/issues/120
+                // https://github.com/octokit/octokit.net/pull/3040
+                treeItem["sha"] = JValue.CreateNull();
+
+            treeItems.Add(treeItem);
+        }
+
+        JObject requestBody = new JObject
+        {
+            ["tree"] = treeItems
+        };
+        if (newTree.BaseTree != null)
+            requestBody["base_tree"] = newTree.BaseTree;
+
+        return requestBody;
     }
 
     // Local overrides are fetched via FetchFiles when requested.
