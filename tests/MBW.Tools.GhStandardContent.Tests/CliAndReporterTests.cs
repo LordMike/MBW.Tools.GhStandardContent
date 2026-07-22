@@ -169,7 +169,12 @@ public sealed class CliAndReporterTests
         {
             RunSummary summary = new(RunMode.Apply, "changesPending",
             [
-                new RepositoryResult("owner/repo", "github", RepositoryStatus.PullRequestOpen, [],
+                new RepositoryResult("owner/repo", "github", RepositoryStatus.PullRequestOpen,
+                    [
+                        new FileOperation("added.txt", FileOperationKind.Add),
+                        new FileOperation("updated.txt", FileOperationKind.Update),
+                        new FileOperation("deleted.txt", FileOperationKind.Delete)
+                    ],
                     new PullRequestInfo(42, "https://example.test/pull/42", false))
             ], []);
 
@@ -177,6 +182,7 @@ public sealed class CliAndReporterTests
 
             Assert.Contains("PR already current", writer.ToString(), StringComparison.Ordinal);
             Assert.Contains("https://example.test/pull/42", writer.ToString(), StringComparison.Ordinal);
+            Assert.Contains("│ 1 │ 1 │ 1 │", writer.ToString(), StringComparison.Ordinal);
         }
         finally
         {
