@@ -16,11 +16,31 @@ public sealed class CliAndReporterTests
     [Fact]
     public void CliRequiresOneOfTheNewCommands()
     {
+        using EnvironmentVariableScope environment = new();
         Assert.NotEmpty(CliApplication.BuildRootCommand().Parse(["repos.json"]).Errors);
+        Assert.NotEmpty(CliApplication.BuildRootCommand().Parse(["validate"]).Errors);
         Assert.Empty(CliApplication.BuildRootCommand().Parse(["validate", "repos.json"]).Errors);
         Assert.Empty(CliApplication.BuildRootCommand().Parse([
             "check", "repos.json", "--local", ".", "--orphaned-files", "keep", "--format", "json"
         ]).Errors);
+    }
+
+    [Fact]
+    public void ConfigDefaultsFromEnvironmentAndExplicitArgumentOverridesIt()
+    {
+        using EnvironmentVariableScope environment = new();
+        environment.Set(EnvironmentDefaults.Config, "environment.json");
+        RootCommand root = CliApplication.BuildRootCommand();
+        Command validate = root.Subcommands.Single(item => item.Name == "validate");
+        Argument<string> config = validate.Arguments.OfType<Argument<string>>().Single();
+
+        ParseResult environmentParse = root.Parse(["validate"]);
+        ParseResult explicitParse = root.Parse(["validate", "explicit.json"]);
+
+        Assert.Empty(environmentParse.Errors);
+        Assert.Equal("environment.json", environmentParse.GetValue(config));
+        Assert.Empty(explicitParse.Errors);
+        Assert.Equal("explicit.json", explicitParse.GetValue(config));
     }
 
     [Fact]
@@ -257,6 +277,7 @@ public sealed class CliAndReporterTests
     {
         private static readonly string[] Names =
         [
+            EnvironmentDefaults.Config,
             EnvironmentDefaults.Repositories,
             EnvironmentDefaults.Local,
             EnvironmentDefaults.GitHubApi,

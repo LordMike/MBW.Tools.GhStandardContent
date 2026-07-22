@@ -4,6 +4,7 @@ namespace MBW.Tools.GhStandardContent.Cli;
 
 internal static class EnvironmentDefaults
 {
+    public const string Config = "GHSC_CONFIG";
     public const string Repositories = "GHSC_REPOSITORIES";
     public const string Local = "GHSC_LOCAL";
     public const string GitHubApi = "GHSC_GITHUB_API";
@@ -42,6 +43,16 @@ internal static class EnvironmentDefaults
 
         result.AddError($"Environment variable {name} cannot be empty.");
         return fallback;
+    }
+
+    public static string GetRequiredArgument(ArgumentResult result, string argument, string environmentName)
+    {
+        string? value = Environment.GetEnvironmentVariable(environmentName);
+        if (!string.IsNullOrWhiteSpace(value))
+            return value;
+
+        result.AddError($"{argument} is required unless environment variable {environmentName} is set.");
+        return string.Empty;
     }
 
     public static int GetInt(ArgumentResult result, string name, int fallback, int minimum, int maximum)

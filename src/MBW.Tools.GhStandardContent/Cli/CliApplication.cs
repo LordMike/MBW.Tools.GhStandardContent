@@ -207,7 +207,10 @@ internal static class CliApplication
 
     private static Argument<string> ConfigurationArgument() => new("CONFIG")
     {
-        Description = "Path to the repository configuration JSON/JSONC file."
+        Description = $"Path to the repository configuration JSON/JSONC file. Environment: {EnvironmentDefaults.Config}.",
+        Arity = ArgumentArity.ZeroOrOne,
+        DefaultValueFactory = result => EnvironmentDefaults.GetRequiredArgument(
+            result, "CONFIG", EnvironmentDefaults.Config)
     };
 
     private static RunOptions Defaults(

@@ -105,6 +105,7 @@ which in turn override built-in defaults.
 
 | Environment variable | CLI option |
 | --- | --- |
+| `GHSC_CONFIG` | `CONFIG` |
 | `GHSC_REPOSITORIES` | `--repository` |
 | `GHSC_LOCAL` | `--local` |
 | `GHSC_GITHUB_API` | `--github-api` |
@@ -118,7 +119,8 @@ which in turn override built-in defaults.
 | `GHSC_ORPHANED_FILES` | `--orphaned-files` |
 
 Use semicolon-separated values for repositories and labels, for example
-`GHSC_REPOSITORIES="owner/one;owner/two"`. Commands, `CONFIG`, and presentation options remain CLI-only.
+`GHSC_REPOSITORIES="owner/one;owner/two"`. An explicit `CONFIG` argument overrides `GHSC_CONFIG`; commands and
+presentation options remain CLI-only.
 
 ## Output
 
