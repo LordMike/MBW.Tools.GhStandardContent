@@ -115,10 +115,27 @@ class GhStandardContentApplier : BaseContentApplier
         foreach (NewTreeItem newTreeItem in newTreeItems)
             newTree.Tree.Add(newTreeItem);
 
+        Reference headReference = await _client.Git.Reference.Get(_repo.Id, $"heads/{_checkBranch}");
+        string headCommit = headReference.Object.Sha;
+
+        TreeResponse previousTree = await _client.Git.Tree.Get(_repo.Id, headReference.Ref);
+        newTree.BaseTree = previousTree.Sha;
+
         if (removals.Count > 0)
         {
             foreach (string path in removals.Distinct(StringComparer.Ordinal))
             {
+                try
+                {
+                    await _client.Repository.Content.GetRawContentByRef(
+                        _repo.Owner.Login, _repo.Name, path, headCommit);
+                }
+                catch (NotFoundException)
+                {
+                    Log.Information("{Repository}: '{Path}' is already absent; skipping removal", _repo.FullName, path);
+                    continue;
+                }
+
                 newTree.Tree.Add(new NewTreeItem
                 {
                     Type = TreeType.Blob,
@@ -128,12 +145,6 @@ class GhStandardContentApplier : BaseContentApplier
                 });
             }
         }
-
-        Reference headReference = await _client.Git.Reference.Get(_repo.Id, $"heads/{_repo.DefaultBranch}");
-        string headCommit = headReference.Object.Sha;
-
-        TreeResponse previousTree = await _client.Git.Tree.Get(_repo.Id, headReference.Ref);
-        newTree.BaseTree = previousTree.Sha;
 
         string newTreeSha = await CreateTree(newTree);
 
