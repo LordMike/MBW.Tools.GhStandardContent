@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{99312C85-6A5
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MBW.Tools.GhStandardContent", "src\MBW.Tools.GhStandardContent\MBW.Tools.GhStandardContent.csproj", "{405D6D12-86A8-4054-B885-79E251270828}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MBW.Tools.GhStandardContent.Tests", "tests\MBW.Tools.GhStandardContent.Tests\MBW.Tools.GhStandardContent.Tests.csproj", "{9E3BE26F-65FC-4D63-A654-38DA836474B6}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9DBDDBE7-B4DD-4239-BEBF-2304127DCE36}"
 	ProjectSection(SolutionItems) = preProject
 		Directory.Build.props = Directory.Build.props
@@ -15,7 +17,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_Imports", "_Imports", "{05AACE82-7D94-4D78-B2D6-DCA101AE8178}"
 	ProjectSection(SolutionItems) = preProject
-		_Imports\Library.targets = _Imports\Library.targets
 		_Imports\Local.targets = _Imports\Local.targets
 	EndProjectSection
 EndProject
@@ -41,6 +42,18 @@ Global
 		{405D6D12-86A8-4054-B885-79E251270828}.Release|x64.Build.0 = Release|Any CPU
 		{405D6D12-86A8-4054-B885-79E251270828}.Release|x86.ActiveCfg = Release|Any CPU
 		{405D6D12-86A8-4054-B885-79E251270828}.Release|x86.Build.0 = Release|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Debug|x64.Build.0 = Debug|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Debug|x86.Build.0 = Debug|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Release|x64.ActiveCfg = Release|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Release|x64.Build.0 = Release|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Release|x86.ActiveCfg = Release|Any CPU
+		{9E3BE26F-65FC-4D63-A654-38DA836474B6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
