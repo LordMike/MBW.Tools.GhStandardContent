@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.CommandLine;
+using System.CommandLine.Parsing;
 using MBW.Tools.GhStandardContent.Cli;
 using MBW.Tools.GhStandardContent.Core;
 using MBW.Tools.GhStandardContent.Reporting;
@@ -19,6 +21,94 @@ public sealed class CliAndReporterTests
         Assert.Empty(CliApplication.BuildRootCommand().Parse([
             "check", "repos.json", "--local", ".", "--orphaned-files", "keep", "--format", "json"
         ]).Errors);
+    }
+
+    [Fact]
+    public void CliReadsOperationalDefaultsFromEnvironment()
+    {
+        using EnvironmentVariableScope environment = new();
+        environment.Set(EnvironmentDefaults.Repositories, " owner/one ; ;owner/two ");
+        environment.Set(EnvironmentDefaults.Local, "../checkout");
+        environment.Set(EnvironmentDefaults.GitHubApi, "https://github.example/api/v3/");
+        environment.Set(EnvironmentDefaults.Proxy, "http://proxy.example:8080/");
+        environment.Set(EnvironmentDefaults.Parallelism, "7");
+        environment.Set(EnvironmentDefaults.Branch, "automation/content");
+        environment.Set(EnvironmentDefaults.CommitAuthor, "Automation User");
+        environment.Set(EnvironmentDefaults.CommitEmail, "automation@example.test");
+        environment.Set(EnvironmentDefaults.Labels, " maintenance ; content ");
+        environment.Set(EnvironmentDefaults.MetaReference, "environment-reference");
+        environment.Set(EnvironmentDefaults.OrphanedFiles, "delete");
+        RootCommand root = CliApplication.BuildRootCommand();
+        Command command = root.Subcommands.Single(item => item.Name == "check");
+
+        ParseResult parse = root.Parse(["check", "repos.json"]);
+
+        Assert.Empty(parse.Errors);
+        Assert.Equal(["owner/one", "owner/two"], parse.GetValue(Option<string[]>(command, "--repository"))!);
+        Assert.Equal("../checkout", parse.GetValue(Option<string?>(command, "--local")));
+        Assert.Equal(new Uri("https://github.example/api/v3/"), parse.GetValue(Option<Uri>(command, "--github-api")));
+        Assert.Equal(new Uri("http://proxy.example:8080/"), parse.GetValue(Option<Uri?>(command, "--proxy")));
+        Assert.Equal(7, parse.GetValue(Option<int>(command, "--parallelism")));
+        Assert.Equal("automation/content", parse.GetValue(Option<string>(command, "--branch")));
+        Assert.Equal("Automation User", parse.GetValue(Option<string>(command, "--commit-author")));
+        Assert.Equal("automation@example.test", parse.GetValue(Option<string>(command, "--commit-email")));
+        Assert.Equal(["maintenance", "content"], parse.GetValue(Option<string[]>(command, "--label"))!);
+        Assert.Equal("environment-reference", parse.GetValue(Option<string?>(command, "--meta-reference")));
+        Assert.Equal(OrphanPolicy.Delete, parse.GetValue(Option<OrphanPolicy>(command, "--orphaned-files")));
+    }
+
+    [Fact]
+    public void ExplicitCliOptionsReplaceEnvironmentDefaults()
+    {
+        using EnvironmentVariableScope environment = new();
+        environment.Set(EnvironmentDefaults.Repositories, "env/one;env/two");
+        environment.Set(EnvironmentDefaults.Labels, "environment-label");
+        environment.Set(EnvironmentDefaults.Parallelism, "2");
+        environment.Set(EnvironmentDefaults.OrphanedFiles, "delete");
+        RootCommand root = CliApplication.BuildRootCommand();
+        Command command = root.Subcommands.Single(item => item.Name == "check");
+
+        ParseResult parse = root.Parse([
+            "check", "repos.json", "-r", "cli/one", "cli/two", "--label", "cli-label",
+            "--parallelism", "8", "--orphaned-files", "keep"
+        ]);
+
+        Assert.Empty(parse.Errors);
+        Assert.Equal(["cli/one", "cli/two"], parse.GetValue(Option<string[]>(command, "--repository"))!);
+        Assert.Equal(["cli-label"], parse.GetValue(Option<string[]>(command, "--label"))!);
+        Assert.Equal(8, parse.GetValue(Option<int>(command, "--parallelism")));
+        Assert.Equal(OrphanPolicy.Keep, parse.GetValue(Option<OrphanPolicy>(command, "--orphaned-files")));
+    }
+
+    [Fact]
+    public void InvalidEnvironmentDefaultsProduceParseErrors()
+    {
+        using EnvironmentVariableScope environment = new();
+        environment.Set(EnvironmentDefaults.GitHubApi, "not a uri");
+        environment.Set(EnvironmentDefaults.Proxy, "also not a uri");
+        environment.Set(EnvironmentDefaults.Parallelism, "99");
+        environment.Set(EnvironmentDefaults.OrphanedFiles, "destroy");
+
+        ParseResult parse = CliApplication.BuildRootCommand().Parse(["check", "repos.json"]);
+
+        string errors = string.Join("\n", parse.Errors.Select(error => error.Message));
+        Assert.Contains(EnvironmentDefaults.GitHubApi, errors, StringComparison.Ordinal);
+        Assert.Contains(EnvironmentDefaults.Proxy, errors, StringComparison.Ordinal);
+        Assert.Contains(EnvironmentDefaults.Parallelism, errors, StringComparison.Ordinal);
+        Assert.Contains(EnvironmentDefaults.OrphanedFiles, errors, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExplicitParallelismStillEnforcesRange()
+    {
+        using EnvironmentVariableScope environment = new();
+
+        ParseResult parse = CliApplication.BuildRootCommand().Parse([
+            "check", "repos.json", "--parallelism", "99"
+        ]);
+
+        Assert.Contains(parse.Errors,
+            error => error.Message.Contains("--parallelism", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -154,5 +244,47 @@ public sealed class CliAndReporterTests
         });
 
         Assert.Same(expected, actual);
+    }
+
+    private static Option<T> Option<T>(Command command, string name) =>
+        command.Options.OfType<Option<T>>().Single(option =>
+            Normalize(option.Name).Equals(Normalize(name), StringComparison.Ordinal) ||
+            option.Aliases.Any(alias => Normalize(alias).Equals(Normalize(name), StringComparison.Ordinal)));
+
+    private static string Normalize(string value) => value.TrimStart('-');
+
+    private sealed class EnvironmentVariableScope : IDisposable
+    {
+        private static readonly string[] Names =
+        [
+            EnvironmentDefaults.Repositories,
+            EnvironmentDefaults.Local,
+            EnvironmentDefaults.GitHubApi,
+            EnvironmentDefaults.Proxy,
+            EnvironmentDefaults.Parallelism,
+            EnvironmentDefaults.Branch,
+            EnvironmentDefaults.CommitAuthor,
+            EnvironmentDefaults.CommitEmail,
+            EnvironmentDefaults.Labels,
+            EnvironmentDefaults.MetaReference,
+            EnvironmentDefaults.OrphanedFiles
+        ];
+
+        private readonly Dictionary<string, string?> _original = Names.ToDictionary(
+            name => name, Environment.GetEnvironmentVariable, StringComparer.Ordinal);
+
+        public EnvironmentVariableScope()
+        {
+            foreach (string name in Names)
+                Environment.SetEnvironmentVariable(name, null);
+        }
+
+        public void Set(string name, string value) => Environment.SetEnvironmentVariable(name, value);
+
+        public void Dispose()
+        {
+            foreach ((string name, string? value) in _original)
+                Environment.SetEnvironmentVariable(name, value);
+        }
     }
 }

@@ -90,57 +90,83 @@ internal static class CliApplication
         Argument<string> config = ConfigurationArgument();
         Option<string[]> repositories = new("--repository", "-r")
         {
-            Description = "Repository owner/name or an unambiguous short name. Repeat to select multiple repositories.",
+            Description = "Repository owner/name or an unambiguous short name. Repeat to select multiple repositories. " +
+                          $"Environment: {EnvironmentDefaults.Repositories} (semicolon-separated).",
             Arity = ArgumentArity.OneOrMore,
-            AllowMultipleArgumentsPerToken = true
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => EnvironmentDefaults.GetList(EnvironmentDefaults.Repositories)
         };
-        Option<string?> local = new("--local") { Description = "Operate on a local Git worktree instead of GitHub." };
+        Option<string?> local = new("--local")
+        {
+            Description = $"Operate on a local Git worktree instead of GitHub. Environment: {EnvironmentDefaults.Local}.",
+            DefaultValueFactory = _ => EnvironmentDefaults.GetOptionalString(EnvironmentDefaults.Local)
+        };
         Option<Uri> githubApi = new("--github-api")
         {
-            Description = "GitHub or GitHub Enterprise API base URI.",
-            DefaultValueFactory = _ => new Uri("https://api.github.com/")
+            Description = $"GitHub or GitHub Enterprise API base URI. Environment: {EnvironmentDefaults.GitHubApi}.",
+            DefaultValueFactory = result => EnvironmentDefaults.GetRequiredUri(
+                result, EnvironmentDefaults.GitHubApi, new Uri("https://api.github.com/"))
         };
-        Option<Uri?> proxy = new("--proxy") { Description = "HTTP proxy URI." };
+        Option<Uri?> proxy = new("--proxy")
+        {
+            Description = $"HTTP proxy URI. Environment: {EnvironmentDefaults.Proxy}.",
+            DefaultValueFactory = result => EnvironmentDefaults.GetOptionalUri(result, EnvironmentDefaults.Proxy)
+        };
         Option<int> parallelism = new("--parallelism")
         {
-            Description = "Maximum repositories processed concurrently (1-16).",
-            DefaultValueFactory = _ => 4
+            Description = $"Maximum repositories processed concurrently (1-16). Environment: {EnvironmentDefaults.Parallelism}.",
+            DefaultValueFactory = result => EnvironmentDefaults.GetInt(
+                result, EnvironmentDefaults.Parallelism, 4, 1, 16)
         };
         parallelism.Validators.Add(result =>
         {
+            // Environment defaults are validated by their factory. Reading a failed implicit
+            // conversion here would turn the parser diagnostic into an exception.
+            if (result.Implicit || result.Errors.Any())
+                return;
+
             int value = result.GetValueOrDefault<int>();
             if (value is < 1 or > 16)
                 result.AddError("--parallelism must be between 1 and 16.");
         });
         Option<string> branch = new("--branch")
         {
-            Description = "Dedicated update branch name.",
-            DefaultValueFactory = _ => "feature/auto-contents"
+            Description = $"Dedicated update branch name. Environment: {EnvironmentDefaults.Branch}.",
+            DefaultValueFactory = result => EnvironmentDefaults.GetRequiredString(
+                result, EnvironmentDefaults.Branch, "feature/auto-contents")
         };
         Option<string> author = new("--commit-author")
         {
-            Description = "Commit author name.",
-            DefaultValueFactory = _ => "Auto Contents"
+            Description = $"Commit author name. Environment: {EnvironmentDefaults.CommitAuthor}.",
+            DefaultValueFactory = result => EnvironmentDefaults.GetRequiredString(
+                result, EnvironmentDefaults.CommitAuthor, "Auto Contents")
         };
         Option<string> email = new("--commit-email")
         {
-            Description = "Commit author email.",
-            DefaultValueFactory = _ => "AutoContents@example.org"
+            Description = $"Commit author email. Environment: {EnvironmentDefaults.CommitEmail}.",
+            DefaultValueFactory = result => EnvironmentDefaults.GetRequiredString(
+                result, EnvironmentDefaults.CommitEmail, "AutoContents@example.org")
         };
         Option<string[]> labels = new("--label")
         {
-            Description = "Pull-request label. Repeat for multiple labels.",
+            Description = "Pull-request label. Repeat for multiple labels. " +
+                          $"Environment: {EnvironmentDefaults.Labels} (semicolon-separated).",
             Arity = ArgumentArity.OneOrMore,
-            AllowMultipleArgumentsPerToken = true
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => EnvironmentDefaults.GetList(EnvironmentDefaults.Labels)
         };
         Option<string?> metaReference = new("--meta-reference")
         {
-            Description = "Reference stored in metadata. Pass an empty value to remove the existing reference."
+            Description = "Reference stored in metadata. Pass an empty value to remove the existing reference. " +
+                          $"Environment: {EnvironmentDefaults.MetaReference}.",
+            DefaultValueFactory = _ => EnvironmentDefaults.GetString(EnvironmentDefaults.MetaReference)
         };
         Option<OrphanPolicy> orphanPolicy = new("--orphaned-files")
         {
-            Description = "Handling for files that are no longer managed: error, keep, or delete.",
-            DefaultValueFactory = _ => OrphanPolicy.Error
+            Description = "Handling for files that are no longer managed: error, keep, or delete. " +
+                          $"Environment: {EnvironmentDefaults.OrphanedFiles}.",
+            DefaultValueFactory = result => EnvironmentDefaults.GetEnum(
+                result, EnvironmentDefaults.OrphanedFiles, OrphanPolicy.Error)
         };
 
         Command command = new(mode == RunMode.Check ? "check" : "apply",

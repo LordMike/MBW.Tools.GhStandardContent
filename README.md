@@ -98,6 +98,28 @@ Useful options shared by `check` and `apply`:
 
 Run any command with `--help` for its complete option reference.
 
+### Environment defaults
+
+Operational options can be supplied through environment variables. Explicit CLI options override environment values,
+which in turn override built-in defaults.
+
+| Environment variable | CLI option |
+| --- | --- |
+| `GHSC_REPOSITORIES` | `--repository` |
+| `GHSC_LOCAL` | `--local` |
+| `GHSC_GITHUB_API` | `--github-api` |
+| `GHSC_PROXY` | `--proxy` |
+| `GHSC_PARALLELISM` | `--parallelism` |
+| `GHSC_BRANCH` | `--branch` |
+| `GHSC_COMMIT_AUTHOR` | `--commit-author` |
+| `GHSC_COMMIT_EMAIL` | `--commit-email` |
+| `GHSC_LABELS` | `--label` |
+| `GHSC_META_REFERENCE` | `--meta-reference` |
+| `GHSC_ORPHANED_FILES` | `--orphaned-files` |
+
+Use semicolon-separated values for repositories and labels, for example
+`GHSC_REPOSITORIES="owner/one;owner/two"`. Commands, `CONFIG`, and presentation options remain CLI-only.
+
 ## Output
 
 Interactive text output uses a single live progress bar followed by the final results table. Transient progress is
