@@ -13,9 +13,8 @@ internal sealed class JsonRunReporter : IRunReporter
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    public void RepositoryStarted(string repository)
-    {
-    }
+    public Task<RunSummary> RunWithProgressAsync(Func<Action<RunProgress>?, Task<RunSummary>> operation) =>
+        operation(null);
 
     public void Write(RunSummary summary)
     {

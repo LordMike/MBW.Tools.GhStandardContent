@@ -195,7 +195,8 @@ internal static class CliApplication
         try
         {
             RunOrchestrator orchestrator = new(new ConfigurationLoader(), new ContentPlanner());
-            RunSummary summary = await orchestrator.RunAsync(options, reporter.RepositoryStarted, cancellationToken);
+            RunSummary summary = await reporter.RunWithProgressAsync(
+                progress => orchestrator.RunAsync(options, progress, cancellationToken));
             reporter.Write(summary);
             return summary.ExitCode;
         }

@@ -71,7 +71,7 @@ internal sealed class GitHubRepositoryProcessor : IRepositoryProcessor, IDisposa
                 if (options.Mode == RunMode.Apply)
                     await AddMissingLabelsAsync(repository, openPullRequest, options.Labels, cancellationToken);
                 return new RepositoryResult(desired.FullName, "github", RepositoryStatus.PullRequestOpen,
-                    defaultPlan.Operations, ToInfo(openPullRequest, false));
+                    [], ToInfo(openPullRequest, false));
             }
 
             if (options.Mode == RunMode.Check)

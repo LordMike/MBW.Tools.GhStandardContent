@@ -17,7 +17,7 @@ internal sealed class RunOrchestrator
     }
 
     public async Task<RunSummary> RunAsync(
-        RunOptions options, Action<string>? repositoryStarted, CancellationToken cancellationToken)
+        RunOptions options, Action<RunProgress>? progressChanged, CancellationToken cancellationToken)
     {
         (LoadedConfiguration? configuration, IReadOnlyList<ValidationDiagnostic> diagnostics) =
             await _configurationLoader.LoadAsync(options.ConfigurationPath, cancellationToken);
@@ -69,6 +69,9 @@ internal sealed class RunOrchestrator
         using (disposable)
         {
             ConcurrentBag<RepositoryResult> results = [];
+            RunProgressTracker? progress = progressChanged is null
+                ? null
+                : new RunProgressTracker(repositories.Count, progressChanged);
             await Parallel.ForEachAsync(repositories,
                 new ParallelOptions
                 {
@@ -77,7 +80,7 @@ internal sealed class RunOrchestrator
                 },
                 async (repository, token) =>
                 {
-                    repositoryStarted?.Invoke(repository);
+                    progress?.Start(repository);
                     try
                     {
                         DesiredRepository desired = await _configurationLoader.BuildDesiredAsync(
@@ -94,6 +97,10 @@ internal sealed class RunOrchestrator
                             options.LocalPath is null ? "github" : "local",
                             ErrorCode(exception), exception.Message,
                             options.Verbosity == OutputVerbosity.Detailed ? exception.ToString() : null));
+                    }
+                    finally
+                    {
+                        progress?.Complete(repository);
                     }
                 });
 

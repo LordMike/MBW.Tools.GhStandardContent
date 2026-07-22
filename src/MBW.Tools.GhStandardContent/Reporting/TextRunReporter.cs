@@ -6,12 +6,14 @@ namespace MBW.Tools.GhStandardContent.Reporting;
 internal sealed class TextRunReporter : IRunReporter
 {
     private readonly IAnsiConsole _console;
+    private readonly bool _interactive;
     private readonly OutputVerbosity _verbosity;
     private readonly object _sync = new();
 
-    public TextRunReporter(ColorMode color, OutputVerbosity verbosity)
+    public TextRunReporter(ColorMode color, OutputVerbosity verbosity, bool? interactive = null)
     {
         _verbosity = verbosity;
+        _interactive = interactive ?? !Console.IsOutputRedirected;
         AnsiConsoleSettings settings = new()
         {
             Ansi = color switch
@@ -26,13 +28,54 @@ internal sealed class TextRunReporter : IRunReporter
         _console = AnsiConsole.Create(settings);
     }
 
-    public void RepositoryStarted(string repository)
+    public Task<RunSummary> RunWithProgressAsync(Func<Action<RunProgress>?, Task<RunSummary>> operation)
     {
-        if (_verbosity == OutputVerbosity.Quiet)
-            return;
+        if (_verbosity == OutputVerbosity.Quiet || !_interactive)
+            return operation(null);
 
-        lock (_sync)
-            _console.MarkupLine($"[grey]→[/] {Markup.Escape(repository)}");
+        return _console.Progress()
+            .AutoClear(true)
+            .HideCompleted(false)
+            .Columns(
+                new ProgressBarColumn
+                {
+                    CompletedStyle = new Style(Color.Blue),
+                    RemainingStyle = new Style(Color.Grey)
+                },
+                new TaskDescriptionColumn())
+            .StartAsync(async context =>
+            {
+                ProgressTask? task = null;
+                return await operation(progress =>
+                {
+                    lock (_sync)
+                    {
+                        double maximum = Math.Max(1, progress.Total);
+                        string description = Markup.Escape(FormatProgress(progress));
+                        task ??= context.AddTask(description, maxValue: maximum);
+                        task.MaxValue = maximum;
+                        task.Value = progress.Total == 0 ? maximum : progress.Completed;
+                        task.Description = description;
+                    }
+                });
+            });
+    }
+
+    internal static string FormatProgress(RunProgress progress)
+    {
+        string status = progress.Phase switch
+        {
+            RunProgressPhase.Starting => "Starting repositories",
+            RunProgressPhase.Processing when progress.StatusRepository is not null =>
+                $"Processing {progress.StatusRepository}",
+            RunProgressPhase.Processing => "Processing repositories",
+            RunProgressPhase.Waiting when progress.StatusRepository is not null =>
+                $"Waiting for {progress.StatusRepository}",
+            RunProgressPhase.Waiting => "Waiting for repositories",
+            RunProgressPhase.Finalizing => "Finalizing results",
+            _ => throw new ArgumentOutOfRangeException(nameof(progress))
+        };
+        return $"{progress.Completed}/{progress.Total} complete · {progress.Running} running · {status}";
     }
 
     public void Write(RunSummary summary)
@@ -106,7 +149,7 @@ internal sealed class TextRunReporter : IRunReporter
         RepositoryStatus.UpToDate => "[green]✓ up to date[/]",
         RepositoryStatus.Applied => "[cyan]✓ applied[/]",
         RepositoryStatus.ChangesPending => "[yellow]△ changes pending[/]",
-        RepositoryStatus.PullRequestOpen => "[yellow]↗ pull request open[/]",
+        RepositoryStatus.PullRequestOpen => "[blue]↗ PR already current[/]",
         RepositoryStatus.Skipped => "[grey]– skipped[/]",
         RepositoryStatus.Blocked => "[yellow]! blocked[/]",
         RepositoryStatus.Failed => "[red]✗ failed[/]",

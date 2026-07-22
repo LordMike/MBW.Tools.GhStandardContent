@@ -100,7 +100,8 @@ Run any command with `--help` for its complete option reference.
 
 ## Output
 
-Text output uses repository progress and a final table suitable for a terminal. Control it with:
+Interactive text output uses a single live progress bar followed by the final results table. Transient progress is
+suppressed when output is redirected, in quiet mode, and for JSON output. Control text presentation with:
 
 ```text
 --verbosity quiet|normal|detailed
