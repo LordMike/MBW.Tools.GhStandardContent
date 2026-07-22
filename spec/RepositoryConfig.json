@@ -30,9 +30,8 @@
       },
       "additionalProperties": {
         "type": "object",
-        "additionalProperties": {
-          "type": "boolean"
-        }
+        "description": "Open repository metadata object. Properties whose names match content profiles act as boolean selectors; unrelated metadata is ignored by this tool.",
+        "additionalProperties": true
       }
     }
   }

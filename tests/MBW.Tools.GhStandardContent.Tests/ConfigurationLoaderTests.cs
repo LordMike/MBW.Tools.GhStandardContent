@@ -33,7 +33,7 @@ public sealed class ConfigurationLoaderTests
     }
 
     [Fact]
-    public async Task Load_ReportsUnknownProfileMissingSourceAndInvalidTargetTogether()
+    public async Task Load_IgnoresUnrelatedRepositoryMetadataWhileReportingContentErrors()
     {
         using TestDirectory directory = new();
         string config = directory.File("repos.json", """
@@ -45,7 +45,13 @@ public sealed class ConfigurationLoaderTests
                 }
               },
               "repositories": {
-                "owner/repo": { "unknown": true }
+                "owner/repo": {
+                  "description": "Shared repository metadata",
+                  "branch": "main",
+                  "topics": ["dotnet", "tools"],
+                  "pages": { "path": "/" },
+                  "public": false
+                }
               }
             }
             """);
@@ -55,7 +61,33 @@ public sealed class ConfigurationLoaderTests
 
         Assert.Contains(diagnostics, diagnostic => diagnostic.Code == "path.invalid");
         Assert.Contains(diagnostics, diagnostic => diagnostic.Code == "source.notFound");
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Code == "repository.unknownProfile");
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Code.StartsWith("repository.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Load_RequiresKnownProfileSelectorsToBeBoolean()
+    {
+        using TestDirectory directory = new();
+        directory.File("source.txt", "content");
+        string config = directory.File("repos.json", """
+            {
+              "content": {
+                "standard": { "target.txt": "source.txt" }
+              },
+              "repositories": {
+                "owner/repo": {
+                  "standard": "yes",
+                  "topics": ["ignored"]
+                }
+              }
+            }
+            """);
+
+        (_, IReadOnlyList<ValidationDiagnostic> diagnostics) =
+            await new ConfigurationLoader().LoadAsync(config, TestContext.Current.CancellationToken);
+
+        ValidationDiagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("repository.invalidProfileSelector", diagnostic.Code);
     }
 
     [Fact]

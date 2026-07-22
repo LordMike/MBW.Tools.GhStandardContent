@@ -11,5 +11,5 @@ internal sealed class RepositoryConfigurationFile
     public Dictionary<string, Dictionary<string, string>>? Content { get; set; }
 
     [JsonPropertyName("repositories")]
-    public Dictionary<string, Dictionary<string, bool>>? Repositories { get; set; }
+    public Dictionary<string, System.Text.Json.JsonElement>? Repositories { get; set; }
 }

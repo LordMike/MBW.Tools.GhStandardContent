@@ -158,7 +158,7 @@ internal sealed class ConfigurationLoader
         }
 
         Dictionary<string, IReadOnlyDictionary<string, bool>> repositories = new(StringComparer.OrdinalIgnoreCase);
-        foreach ((string repository, Dictionary<string, bool>? selectedProfiles) in document.Repositories!)
+        foreach ((string repository, JsonElement repositoryConfiguration) in document.Repositories!)
         {
             if (!IsRepositoryName(repository))
             {
@@ -167,18 +167,28 @@ internal sealed class ConfigurationLoader
                 continue;
             }
 
-            if (selectedProfiles is null)
+            if (repositoryConfiguration.ValueKind != JsonValueKind.Object)
             {
                 diagnostics.Add(new("repository.invalid", $"Repository '{repository}' must be an object.",
                     $"repositories.{repository}"));
                 continue;
             }
 
-            foreach (string profile in selectedProfiles.Keys)
+            Dictionary<string, bool> selectedProfiles = new(StringComparer.Ordinal);
+            foreach (string profile in profiles.Keys)
             {
-                if (!profiles.ContainsKey(profile))
-                    diagnostics.Add(new("repository.unknownProfile", $"Repository '{repository}' references unknown profile '{profile}'.",
+                if (!repositoryConfiguration.TryGetProperty(profile, out JsonElement selector))
+                    continue;
+
+                if (selector.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                {
+                    diagnostics.Add(new("repository.invalidProfileSelector",
+                        $"Profile selector '{profile}' for repository '{repository}' must be a boolean.",
                         $"repositories.{repository}.{profile}"));
+                    continue;
+                }
+
+                selectedProfiles.Add(profile, selector.GetBoolean());
             }
 
             Dictionary<string, string> targets = new(StringComparer.Ordinal);
@@ -196,7 +206,7 @@ internal sealed class ConfigurationLoader
                 }
             }
 
-            if (!repositories.TryAdd(repository, new Dictionary<string, bool>(selectedProfiles, StringComparer.Ordinal)))
+            if (!repositories.TryAdd(repository, selectedProfiles))
                 diagnostics.Add(new("repository.duplicate", $"Repository '{repository}' is duplicated with different casing.",
                     $"repositories.{repository}"));
         }
