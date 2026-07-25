@@ -44,7 +44,7 @@ internal sealed class LocalRepositoryProcessor : IRepositoryProcessor
             return new RepositoryResult(desired.FullName, "local", RepositoryStatus.ChangesPending, plan.Operations);
 
         await ApplyAsync(plan.Operations, cancellationToken);
-        return new RepositoryResult(desired.FullName, "local", RepositoryStatus.Applied, plan.Operations);
+        return new RepositoryResult(desired.FullName, "local", RepositoryStatus.FilesUpdated, plan.Operations);
     }
 
     private async Task<Dictionary<string, byte[]>> ReadAsync(

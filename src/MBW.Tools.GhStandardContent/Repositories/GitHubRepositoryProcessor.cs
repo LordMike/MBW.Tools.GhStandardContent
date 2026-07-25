@@ -124,7 +124,10 @@ internal sealed class GitHubRepositoryProcessor : IRepositoryProcessor, IDisposa
 
             PullRequestInfo pullRequest = await ApplyAsync(
                 repository, defaultState, defaultPlan.Operations, openPullRequest, options, cancellationToken);
-            return new RepositoryResult(desired.FullName, "github", RepositoryStatus.Applied,
+            RepositoryStatus publishedStatus = pullRequest.Created
+                ? RepositoryStatus.PullRequestCreated
+                : RepositoryStatus.PullRequestUpdated;
+            return new RepositoryResult(desired.FullName, "github", publishedStatus,
                 defaultPlan.Operations, pullRequest);
         }
 

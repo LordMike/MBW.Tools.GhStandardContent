@@ -21,7 +21,7 @@ public sealed class LocalRepositoryProcessorTests
         Assert.False(File.Exists(System.IO.Path.Combine(directory.Path, "nested", "file.txt")));
 
         RepositoryResult apply = await processor.ProcessAsync(desired, Options(RunMode.Apply, directory.Path), cancellationToken);
-        Assert.Equal(RepositoryStatus.Applied, apply.Status);
+        Assert.Equal(RepositoryStatus.FilesUpdated, apply.Status);
         Assert.Equal("desired\n", await File.ReadAllTextAsync(
             System.IO.Path.Combine(directory.Path, "nested", "file.txt"), cancellationToken));
         Assert.True(File.Exists(System.IO.Path.Combine(directory.Path, ContentPlanner.MetadataPath)));

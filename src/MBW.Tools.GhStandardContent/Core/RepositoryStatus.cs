@@ -4,7 +4,9 @@ internal enum RepositoryStatus
 {
     UpToDate,
     ChangesPending,
-    Applied,
+    FilesUpdated,
+    PullRequestCreated,
+    PullRequestUpdated,
     PullRequestOpen,
     PullRequestBehind,
     PullRequestRefreshed,

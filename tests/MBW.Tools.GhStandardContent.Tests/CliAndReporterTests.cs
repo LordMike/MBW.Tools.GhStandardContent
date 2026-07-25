@@ -142,7 +142,9 @@ public sealed class CliAndReporterTests
             RunSummary summary = new(RunMode.Check, "changesPending",
             [
                 new RepositoryResult("owner/repo", "local", RepositoryStatus.ChangesPending,
-                    [new FileOperation("file.txt", FileOperationKind.Update, "secret-content"u8.ToArray())])
+                    [new FileOperation("file.txt", FileOperationKind.Update, "secret-content"u8.ToArray())]),
+                new RepositoryResult("owner/published", "github", RepositoryStatus.PullRequestUpdated, [],
+                    new PullRequestInfo(42, "https://example.test/pull/42", false))
             ], []);
 
             new JsonRunReporter().Write(summary);
@@ -151,6 +153,9 @@ public sealed class CliAndReporterTests
             Assert.Equal(1, json.RootElement.GetProperty("schemaVersion").GetInt32());
             Assert.Equal("file.txt", json.RootElement.GetProperty("repositories")[0]
                 .GetProperty("changes")[0].GetProperty("path").GetString());
+            Assert.Equal("pullRequestUpdated", json.RootElement.GetProperty("repositories")[1]
+                .GetProperty("status").GetString());
+            Assert.Equal(1, json.RootElement.GetProperty("summary").GetProperty("pullRequests").GetInt32());
             Assert.DoesNotContain("secret-content", writer.ToString(), StringComparison.Ordinal);
         }
         finally
@@ -237,6 +242,37 @@ public sealed class CliAndReporterTests
             string output = writer.ToString();
             Assert.Equal(3, output.Split("│ – │ – │ – │", StringSplitOptions.None).Length - 1);
             Assert.DoesNotContain("│ 0 │ 1 │ 0 │", output, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+    }
+
+    [Fact]
+    public void TextReporterNamesPublishedChangesWithoutImplyingTheyWereMerged()
+    {
+        TextWriter original = Console.Out;
+        using StringWriter writer = new();
+        Console.SetOut(writer);
+        try
+        {
+            RunSummary summary = new(RunMode.Apply, "success",
+            [
+                new RepositoryResult("owner/created", "github", RepositoryStatus.PullRequestCreated, [],
+                    new PullRequestInfo(41, "https://example.test/pull/41", true)),
+                new RepositoryResult("owner/updated", "github", RepositoryStatus.PullRequestUpdated, [],
+                    new PullRequestInfo(42, "https://example.test/pull/42", false)),
+                new RepositoryResult("owner/local", "local", RepositoryStatus.FilesUpdated, [])
+            ], []);
+
+            new TextRunReporter(ColorMode.Never, OutputVerbosity.Normal).Write(summary);
+
+            string output = writer.ToString();
+            Assert.Contains("PR created", output, StringComparison.Ordinal);
+            Assert.Contains("PR updated", output, StringComparison.Ordinal);
+            Assert.Contains("files updated", output, StringComparison.Ordinal);
+            Assert.DoesNotContain("applied", output, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

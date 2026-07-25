@@ -156,7 +156,9 @@ internal sealed class TextRunReporter : IRunReporter
     private static string StatusMarkup(RepositoryResult result) => result.Status switch
     {
         RepositoryStatus.UpToDate => "[green]✓ up to date[/]",
-        RepositoryStatus.Applied => "[cyan]✓ applied[/]",
+        RepositoryStatus.FilesUpdated => "[cyan]✓ files updated[/]",
+        RepositoryStatus.PullRequestCreated => "[cyan]↗ PR created[/]",
+        RepositoryStatus.PullRequestUpdated => "[cyan]↻ PR updated[/]",
         RepositoryStatus.ChangesPending => "[yellow]△ changes pending[/]",
         RepositoryStatus.PullRequestOpen => "[blue]↗ PR already current[/]",
         RepositoryStatus.PullRequestBehind =>
