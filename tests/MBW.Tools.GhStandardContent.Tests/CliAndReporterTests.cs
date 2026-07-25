@@ -192,6 +192,30 @@ public sealed class CliAndReporterTests
     }
 
     [Fact]
+    public void TextReporterUsesNeutralCountsForUpToDateRepository()
+    {
+        TextWriter original = Console.Out;
+        using StringWriter writer = new();
+        Console.SetOut(writer);
+        try
+        {
+            RunSummary summary = new(RunMode.Check, "success",
+            [
+                new RepositoryResult("owner/repo", "github", RepositoryStatus.UpToDate, [])
+            ], []);
+
+            new TextRunReporter(ColorMode.Never, OutputVerbosity.Normal).Write(summary);
+
+            Assert.Contains("up to date", writer.ToString(), StringComparison.Ordinal);
+            Assert.Contains("│ – │ – │ – │", writer.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+    }
+
+    [Fact]
     public void ProgressDescriptionReflectsTypedPhase()
     {
         (RunProgressPhase Phase, string? Repository, string Expected)[] cases =
