@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <IsPackable>true</IsPackable>
     <OutputType>Exe</OutputType>
     <Description>.NET global tool to standardize content in Github repositories</Description>
     <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
