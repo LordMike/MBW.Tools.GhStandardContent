@@ -182,8 +182,7 @@ public sealed class CliAndReporterTests
 
             Assert.Contains("PR already current", writer.ToString(), StringComparison.Ordinal);
             Assert.Contains("https://example.test/pull/42", writer.ToString(), StringComparison.Ordinal);
-            Assert.Contains("│ – │ – │ – │", writer.ToString(), StringComparison.Ordinal);
-            Assert.DoesNotContain("│ 1 │ 1 │ 1 │", writer.ToString(), StringComparison.Ordinal);
+            Assert.Contains("│ 1 │ 1 │ 1 │", writer.ToString(), StringComparison.Ordinal);
         }
         finally
         {
@@ -216,6 +215,36 @@ public sealed class CliAndReporterTests
     }
 
     [Fact]
+    public void TextReporterUsesNeutralCountsWhenNoChangePlanIsAvailable()
+    {
+        TextWriter original = Console.Out;
+        using StringWriter writer = new();
+        Console.SetOut(writer);
+        try
+        {
+            RunSummary summary = new(RunMode.Apply, "partialFailure",
+            [
+                new RepositoryResult("owner/skipped", "github", RepositoryStatus.Skipped,
+                    [new FileOperation("ignored.txt", FileOperationKind.Update)]),
+                new RepositoryResult("owner/blocked", "github", RepositoryStatus.Blocked,
+                    [new FileOperation("ignored.txt", FileOperationKind.Update)]),
+                new RepositoryResult("owner/failed", "github", RepositoryStatus.Failed,
+                    [new FileOperation("ignored.txt", FileOperationKind.Update)])
+            ], []);
+
+            new TextRunReporter(ColorMode.Never, OutputVerbosity.Normal).Write(summary);
+
+            string output = writer.ToString();
+            Assert.Equal(3, output.Split("│ – │ – │ – │", StringSplitOptions.None).Length - 1);
+            Assert.DoesNotContain("│ 0 │ 1 │ 0 │", output, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+    }
+
+    [Fact]
     public void TextReporterDistinguishesBehindAndRefreshedPullRequests()
     {
         TextWriter original = Console.Out;
@@ -239,9 +268,9 @@ public sealed class CliAndReporterTests
             Assert.Contains("PR behind by 3", output, StringComparison.Ordinal);
             Assert.Contains("PR refreshed", output, StringComparison.Ordinal);
             Assert.Contains("owner/behind", output, StringComparison.Ordinal);
-            Assert.Contains("│ – │ – │ – │", output, StringComparison.Ordinal);
-            Assert.Contains("owner/refreshed", output, StringComparison.Ordinal);
             Assert.Contains("│ 0 │ 1 │ 0 │", output, StringComparison.Ordinal);
+            Assert.Contains("owner/refreshed", output, StringComparison.Ordinal);
+            Assert.Equal(2, output.Split("│ 0 │ 1 │ 0 │", StringSplitOptions.None).Length - 1);
         }
         finally
         {

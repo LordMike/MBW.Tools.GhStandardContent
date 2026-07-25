@@ -108,7 +108,8 @@ internal sealed class TextRunReporter : IRunReporter
             foreach (RepositoryResult result in summary.Repositories)
             {
                 bool showCounts = result.Status is not (
-                    RepositoryStatus.PullRequestOpen or RepositoryStatus.PullRequestBehind or RepositoryStatus.UpToDate);
+                    RepositoryStatus.UpToDate or RepositoryStatus.Skipped or
+                    RepositoryStatus.Blocked or RepositoryStatus.Failed);
                 string adds = showCounts
                     ? result.Operations.Count(operation => operation.Kind == FileOperationKind.Add).ToString()
                     : "–";
