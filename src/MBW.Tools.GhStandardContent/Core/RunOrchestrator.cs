@@ -107,7 +107,8 @@ internal sealed class RunOrchestrator
             RepositoryResult[] ordered = results.OrderBy(result => result.Repository, StringComparer.OrdinalIgnoreCase).ToArray();
             string result = ordered.Any(item => item.Status is RepositoryStatus.Failed or RepositoryStatus.Blocked)
                 ? "partialFailure"
-                : ordered.Any(item => item.Status is RepositoryStatus.ChangesPending or RepositoryStatus.PullRequestOpen)
+                : ordered.Any(item => item.Status is
+                    RepositoryStatus.ChangesPending or RepositoryStatus.PullRequestOpen or RepositoryStatus.PullRequestBehind)
                     ? "changesPending"
                     : "success";
             return new RunSummary(options.Mode, result, ordered, []);

@@ -68,10 +68,35 @@ internal sealed class GitHubRepositoryProcessor : IRepositoryProcessor, IDisposa
 
             if (openPullRequest is not null && branchPlan is { IsBlocked: false, HasChanges: false })
             {
+                if (!defaultPlan.HasChanges)
+                    return new RepositoryResult(desired.FullName, "github", RepositoryStatus.UpToDate, []);
+
+                CompareResult comparison = await ExecuteApiAsync(
+                    () => _client.Repository.Commit.Compare(
+                        repository.Id, defaultState.CommitSha, branchState!.CommitSha), cancellationToken);
+
                 if (options.Mode == RunMode.Apply)
                     await AddMissingLabelsAsync(repository, openPullRequest, options.Labels, cancellationToken);
-                return new RepositoryResult(desired.FullName, "github", RepositoryStatus.PullRequestOpen,
-                    defaultPlan.Operations, ToInfo(openPullRequest, false));
+
+                PullRequestInfo currentPullRequest = ToInfo(openPullRequest, false, comparison.BehindBy);
+                if (comparison.BehindBy == 0)
+                    return new RepositoryResult(desired.FullName, "github", RepositoryStatus.PullRequestOpen,
+                        defaultPlan.Operations, currentPullRequest);
+
+                if (options.Mode == RunMode.Check)
+                    return new RepositoryResult(desired.FullName, "github", RepositoryStatus.PullRequestBehind,
+                        defaultPlan.Operations, currentPullRequest);
+
+                Reference latestDefault = await ExecuteApiAsync(
+                    () => _client.Git.Reference.Get(repository.Id, $"heads/{repository.DefaultBranch}"),
+                    cancellationToken);
+                if (!latestDefault.Object.Sha.Equals(defaultState.CommitSha, StringComparison.Ordinal))
+                    continue;
+
+                PullRequestInfo refreshed = await ApplyAsync(
+                    repository, defaultState, defaultPlan.Operations, openPullRequest, options, cancellationToken);
+                return new RepositoryResult(desired.FullName, "github", RepositoryStatus.PullRequestRefreshed,
+                    defaultPlan.Operations, refreshed with { BehindBy = comparison.BehindBy });
             }
 
             if (options.Mode == RunMode.Check)
@@ -343,8 +368,8 @@ internal sealed class GitHubRepositoryProcessor : IRepositoryProcessor, IDisposa
         HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway or
         HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout;
 
-    private static PullRequestInfo ToInfo(PullRequest pullRequest, bool created) =>
-        new(pullRequest.Number, pullRequest.HtmlUrl, created);
+    private static PullRequestInfo ToInfo(PullRequest pullRequest, bool created, int behindBy = 0) =>
+        new(pullRequest.Number, pullRequest.HtmlUrl, created, behindBy);
 
     private static Uri EnsureTrailingSlash(Uri uri) =>
         uri.AbsoluteUri.EndsWith('/') ? uri : new Uri(uri.AbsoluteUri + "/");

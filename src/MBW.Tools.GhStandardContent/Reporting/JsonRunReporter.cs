@@ -27,8 +27,10 @@ internal sealed class JsonRunReporter : IRunReporter
             {
                 total = summary.Repositories.Count,
                 upToDate = summary.Repositories.Count(item => item.Status == RepositoryStatus.UpToDate),
-                changed = summary.Repositories.Count(item => item.Status is RepositoryStatus.Applied or RepositoryStatus.ChangesPending),
-                pullRequests = summary.Repositories.Count(item => item.Status == RepositoryStatus.PullRequestOpen),
+                changed = summary.Repositories.Count(item => item.Status is
+                    RepositoryStatus.Applied or RepositoryStatus.ChangesPending or RepositoryStatus.PullRequestRefreshed),
+                pullRequests = summary.Repositories.Count(item => item.Status is
+                    RepositoryStatus.PullRequestOpen or RepositoryStatus.PullRequestBehind or RepositoryStatus.PullRequestRefreshed),
                 blocked = summary.Repositories.Count(item => item.Status == RepositoryStatus.Blocked),
                 failed = summary.Repositories.Count(item => item.Status == RepositoryStatus.Failed)
             },

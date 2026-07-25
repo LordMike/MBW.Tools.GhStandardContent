@@ -107,7 +107,8 @@ internal sealed class TextRunReporter : IRunReporter
 
             foreach (RepositoryResult result in summary.Repositories)
             {
-                bool showCounts = result.Status is not (RepositoryStatus.PullRequestOpen or RepositoryStatus.UpToDate);
+                bool showCounts = result.Status is not (
+                    RepositoryStatus.PullRequestOpen or RepositoryStatus.PullRequestBehind or RepositoryStatus.UpToDate);
                 string adds = showCounts
                     ? result.Operations.Count(operation => operation.Kind == FileOperationKind.Add).ToString()
                     : "–";
@@ -120,7 +121,7 @@ internal sealed class TextRunReporter : IRunReporter
                 string details = result.Error?.Message ?? result.PullRequest?.Url ?? string.Empty;
                 table.AddRow(
                     Markup.Escape(result.Repository),
-                    StatusMarkup(result.Status),
+                    StatusMarkup(result),
                     adds,
                     updates,
                     deletes,
@@ -151,16 +152,19 @@ internal sealed class TextRunReporter : IRunReporter
             _console.MarkupLine("[yellow]Operation cancelled.[/]");
     }
 
-    private static string StatusMarkup(RepositoryStatus status) => status switch
+    private static string StatusMarkup(RepositoryResult result) => result.Status switch
     {
         RepositoryStatus.UpToDate => "[green]✓ up to date[/]",
         RepositoryStatus.Applied => "[cyan]✓ applied[/]",
         RepositoryStatus.ChangesPending => "[yellow]△ changes pending[/]",
         RepositoryStatus.PullRequestOpen => "[blue]↗ PR already current[/]",
+        RepositoryStatus.PullRequestBehind =>
+            $"[yellow]↗ PR behind by {result.PullRequest?.BehindBy ?? 0}[/]",
+        RepositoryStatus.PullRequestRefreshed => "[cyan]↻ PR refreshed[/]",
         RepositoryStatus.Skipped => "[grey]– skipped[/]",
         RepositoryStatus.Blocked => "[yellow]! blocked[/]",
         RepositoryStatus.Failed => "[red]✗ failed[/]",
-        _ => Markup.Escape(status.ToString())
+        _ => Markup.Escape(result.Status.ToString())
     };
 
     private static string OperationSymbol(FileOperationKind kind) => kind switch

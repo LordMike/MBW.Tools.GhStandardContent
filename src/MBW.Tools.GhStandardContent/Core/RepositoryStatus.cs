@@ -6,6 +6,8 @@ internal enum RepositoryStatus
     ChangesPending,
     Applied,
     PullRequestOpen,
+    PullRequestBehind,
+    PullRequestRefreshed,
     Skipped,
     Blocked,
     Failed

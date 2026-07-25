@@ -77,11 +77,11 @@ Checks JSON/JSONC syntax, repository names, profile references, source-file avai
 
 ### `check <CONFIG>`
 
-Reads the selected repositories and returns the exact add, update, and delete plan without writing. GitHub checks compare the default branch; an already-open update PR is reported separately as pending work.
+Reads the selected repositories and returns the exact add, update, and delete plan without writing. GitHub checks compare the default branch; an already-open update PR is reported separately as pending work. If its generated branch has the desired content but is behind the default branch, check mode reports the number of commits behind.
 
 ### `apply <CONFIG>`
 
-Applies the calculated plan. GitHub mode creates or updates the configured branch and ensures an open pull request exists. Local mode stages changed content before replacing files and writes metadata last.
+Applies the calculated plan. GitHub mode creates or updates the configured branch and ensures an open pull request exists. When an existing generated branch is behind the default branch, it is rebuilt as one commit on the latest default commit and the existing PR is reused. No refresh is made when the default branch already contains the desired content. Local mode stages changed content before replacing files and writes metadata last.
 
 Useful options shared by `check` and `apply`:
 

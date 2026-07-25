@@ -216,6 +216,52 @@ public sealed class CliAndReporterTests
     }
 
     [Fact]
+    public void TextReporterDistinguishesBehindAndRefreshedPullRequests()
+    {
+        TextWriter original = Console.Out;
+        using StringWriter writer = new();
+        Console.SetOut(writer);
+        try
+        {
+            RunSummary summary = new(RunMode.Apply, "success",
+            [
+                new RepositoryResult("owner/behind", "github", RepositoryStatus.PullRequestBehind,
+                    [new FileOperation("standard.txt", FileOperationKind.Update)],
+                    new PullRequestInfo(41, "https://example.test/pull/41", false, 3)),
+                new RepositoryResult("owner/refreshed", "github", RepositoryStatus.PullRequestRefreshed,
+                    [new FileOperation("standard.txt", FileOperationKind.Update)],
+                    new PullRequestInfo(42, "https://example.test/pull/42", false, 2))
+            ], []);
+
+            new TextRunReporter(ColorMode.Never, OutputVerbosity.Normal).Write(summary);
+
+            string output = writer.ToString();
+            Assert.Contains("PR behind by 3", output, StringComparison.Ordinal);
+            Assert.Contains("PR refreshed", output, StringComparison.Ordinal);
+            Assert.Contains("owner/behind", output, StringComparison.Ordinal);
+            Assert.Contains("│ – │ – │ – │", output, StringComparison.Ordinal);
+            Assert.Contains("owner/refreshed", output, StringComparison.Ordinal);
+            Assert.Contains("│ 0 │ 1 │ 0 │", output, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+    }
+
+    [Fact]
+    public void BehindPullRequestIsPendingInCheckMode()
+    {
+        RunSummary summary = new(RunMode.Check, "changesPending",
+        [
+            new RepositoryResult("owner/repo", "github", RepositoryStatus.PullRequestBehind, [],
+                new PullRequestInfo(42, "https://example.test/pull/42", false, 3))
+        ], []);
+
+        Assert.Equal(2, summary.ExitCode);
+    }
+
+    [Fact]
     public void ProgressDescriptionReflectsTypedPhase()
     {
         (RunProgressPhase Phase, string? Repository, string Expected)[] cases =

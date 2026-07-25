@@ -10,7 +10,8 @@ internal sealed record RunSummary(
     {
         RunMode.Validate when Diagnostics.Count > 0 => 1,
         RunMode.Check when Repositories.Any(result => result.Status is RepositoryStatus.Failed or RepositoryStatus.Blocked) => 3,
-        RunMode.Check when Repositories.Any(result => result.Status is RepositoryStatus.ChangesPending or RepositoryStatus.PullRequestOpen) => 2,
+        RunMode.Check when Repositories.Any(result => result.Status is
+            RepositoryStatus.ChangesPending or RepositoryStatus.PullRequestOpen or RepositoryStatus.PullRequestBehind) => 2,
         RunMode.Apply when Repositories.Any(result => result.Status is RepositoryStatus.Failed or RepositoryStatus.Blocked) => 3,
         _ when Diagnostics.Count > 0 => 1,
         _ => 0
