@@ -107,16 +107,23 @@ internal sealed class TextRunReporter : IRunReporter
 
             foreach (RepositoryResult result in summary.Repositories)
             {
-                int adds = result.Operations.Count(operation => operation.Kind == FileOperationKind.Add);
-                int updates = result.Operations.Count(operation => operation.Kind == FileOperationKind.Update);
-                int deletes = result.Operations.Count(operation => operation.Kind == FileOperationKind.Delete);
+                bool showCounts = result.Status != RepositoryStatus.PullRequestOpen;
+                string adds = showCounts
+                    ? result.Operations.Count(operation => operation.Kind == FileOperationKind.Add).ToString()
+                    : "–";
+                string updates = showCounts
+                    ? result.Operations.Count(operation => operation.Kind == FileOperationKind.Update).ToString()
+                    : "–";
+                string deletes = showCounts
+                    ? result.Operations.Count(operation => operation.Kind == FileOperationKind.Delete).ToString()
+                    : "–";
                 string details = result.Error?.Message ?? result.PullRequest?.Url ?? string.Empty;
                 table.AddRow(
                     Markup.Escape(result.Repository),
                     StatusMarkup(result.Status),
-                    adds.ToString(),
-                    updates.ToString(),
-                    deletes.ToString(),
+                    adds,
+                    updates,
+                    deletes,
                     Markup.Escape(details));
             }
 

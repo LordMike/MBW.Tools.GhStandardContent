@@ -182,7 +182,8 @@ public sealed class CliAndReporterTests
 
             Assert.Contains("PR already current", writer.ToString(), StringComparison.Ordinal);
             Assert.Contains("https://example.test/pull/42", writer.ToString(), StringComparison.Ordinal);
-            Assert.Contains("│ 1 │ 1 │ 1 │", writer.ToString(), StringComparison.Ordinal);
+            Assert.Contains("│ – │ – │ – │", writer.ToString(), StringComparison.Ordinal);
+            Assert.DoesNotContain("│ 1 │ 1 │ 1 │", writer.ToString(), StringComparison.Ordinal);
         }
         finally
         {
