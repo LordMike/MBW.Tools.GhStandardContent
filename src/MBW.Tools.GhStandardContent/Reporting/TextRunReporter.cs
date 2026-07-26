@@ -108,7 +108,7 @@ internal sealed class TextRunReporter : IRunReporter
             foreach (RepositoryResult result in summary.Repositories)
             {
                 bool showCounts = result.Status is not (
-                    RepositoryStatus.UpToDate or RepositoryStatus.Skipped or
+                    RepositoryStatus.UpToDate or RepositoryStatus.NoChanges or RepositoryStatus.Skipped or
                     RepositoryStatus.Blocked or RepositoryStatus.Failed);
                 string adds = showCounts
                     ? result.Operations.Count(operation => operation.Kind == FileOperationKind.Add).ToString()
@@ -119,14 +119,17 @@ internal sealed class TextRunReporter : IRunReporter
                 string deletes = showCounts
                     ? result.Operations.Count(operation => operation.Kind == FileOperationKind.Delete).ToString()
                     : "–";
-                string details = result.Error?.Message ?? result.PullRequest?.Url ?? string.Empty;
+                string[] details = new string?[] { result.Error?.Message, result.Detail, result.PullRequest?.Url }
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value!)
+                    .ToArray();
                 table.AddRow(
                     Markup.Escape(result.Repository),
                     StatusMarkup(result),
                     adds,
                     updates,
                     deletes,
-                    Markup.Escape(details));
+                    Markup.Escape(string.Join(" · ", details)));
             }
 
             _console.Write(table);
@@ -164,6 +167,13 @@ internal sealed class TextRunReporter : IRunReporter
         RepositoryStatus.PullRequestBehind =>
             $"[yellow]↗ PR behind by {result.PullRequest?.BehindBy ?? 0}[/]",
         RepositoryStatus.PullRequestRefreshed => "[cyan]↻ PR refreshed[/]",
+        RepositoryStatus.Merged => "[cyan]✓ merged[/]",
+        RepositoryStatus.NoChanges => "[green]✓ no changes[/]",
+        RepositoryStatus.PullRequestMissing => "[yellow]△ PR not created[/]",
+        RepositoryStatus.Outdated => "[yellow]↻ outdated[/]",
+        RepositoryStatus.CiNotReady => "[yellow]◷ CI not ready[/]",
+        RepositoryStatus.CiNotPassing => "[red]✗ CI not passing[/]",
+        RepositoryStatus.PullRequestNotMergeable => "[yellow]! PR not mergeable[/]",
         RepositoryStatus.Skipped => "[grey]– skipped[/]",
         RepositoryStatus.Blocked => "[yellow]! blocked[/]",
         RepositoryStatus.Failed => "[red]✗ failed[/]",

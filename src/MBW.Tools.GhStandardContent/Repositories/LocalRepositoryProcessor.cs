@@ -23,6 +23,28 @@ internal sealed class LocalRepositoryProcessor : IRepositoryProcessor
     public async Task<RepositoryResult> ProcessAsync(
         DesiredRepository desired, RunOptions options, CancellationToken cancellationToken)
     {
+        RepositoryAssessment assessment = await AssessAsync(desired, options, cancellationToken);
+        if (assessment.Status == RepositoryAssessmentStatus.Blocked)
+            return new RepositoryResult(desired.FullName, "local", RepositoryStatus.Blocked, [], null, assessment.Error);
+
+        if (assessment.Status == RepositoryAssessmentStatus.NoChanges)
+        {
+            RepositoryStatus status = desired.Files.Count == 0 ? RepositoryStatus.Skipped : RepositoryStatus.UpToDate;
+            return new RepositoryResult(desired.FullName, "local", status, []);
+        }
+
+        if (options.Mode == RunMode.Check)
+            return new RepositoryResult(desired.FullName, "local", RepositoryStatus.ChangesPending, assessment.Operations);
+        if (options.Mode == RunMode.Merge)
+            throw new InvalidOperationException("Merge is only supported for GitHub repositories.");
+
+        await ApplyAsync(assessment.Operations, cancellationToken);
+        return new RepositoryResult(desired.FullName, "local", RepositoryStatus.FilesUpdated, assessment.Operations);
+    }
+
+    private async Task<RepositoryAssessment> AssessAsync(
+        DesiredRepository desired, RunOptions options, CancellationToken cancellationToken)
+    {
         Dictionary<string, byte[]> current = await ReadAsync(_planner.InitialFetchPaths(desired), cancellationToken);
         current = await ReadAsync(_planner.ExpandFetchPaths(desired, current), cancellationToken);
         DesiredRepository merged = _planner.ApplyLocalOverrides(desired, current);
@@ -30,21 +52,18 @@ internal sealed class LocalRepositoryProcessor : IRepositoryProcessor
 
         if (plan.IsBlocked)
         {
-            return new RepositoryResult(desired.FullName, "local", RepositoryStatus.Blocked, [], null,
-                new RepositoryError("orphanPolicyRequired", plan.BlockReason ?? "An orphan policy is required."));
+            return new RepositoryAssessment(
+                desired.FullName, "local", RepositoryAssessmentStatus.Blocked, [], null, [],
+                Error: new RepositoryError(
+                    "orphanPolicyRequired", plan.BlockReason ?? "An orphan policy is required."));
         }
 
         if (!plan.HasChanges)
-        {
-            RepositoryStatus status = desired.Files.Count == 0 ? RepositoryStatus.Skipped : RepositoryStatus.UpToDate;
-            return new RepositoryResult(desired.FullName, "local", status, []);
-        }
+            return new RepositoryAssessment(
+                desired.FullName, "local", RepositoryAssessmentStatus.NoChanges, [], null, []);
 
-        if (options.Mode == RunMode.Check)
-            return new RepositoryResult(desired.FullName, "local", RepositoryStatus.ChangesPending, plan.Operations);
-
-        await ApplyAsync(plan.Operations, cancellationToken);
-        return new RepositoryResult(desired.FullName, "local", RepositoryStatus.FilesUpdated, plan.Operations);
+        return new RepositoryAssessment(
+            desired.FullName, "local", RepositoryAssessmentStatus.ChangesPending, plan.Operations, null, []);
     }
 
     private async Task<Dictionary<string, byte[]>> ReadAsync(

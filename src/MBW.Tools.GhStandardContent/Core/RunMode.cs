@@ -4,5 +4,6 @@ internal enum RunMode
 {
     Validate,
     Check,
-    Apply
+    Apply,
+    Merge
 }

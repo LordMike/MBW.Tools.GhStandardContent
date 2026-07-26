@@ -10,6 +10,13 @@ internal enum RepositoryStatus
     PullRequestOpen,
     PullRequestBehind,
     PullRequestRefreshed,
+    Merged,
+    NoChanges,
+    PullRequestMissing,
+    Outdated,
+    CiNotReady,
+    CiNotPassing,
+    PullRequestNotMergeable,
     Skipped,
     Blocked,
     Failed

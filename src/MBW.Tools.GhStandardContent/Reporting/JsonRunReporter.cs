@@ -26,14 +26,27 @@ internal sealed class JsonRunReporter : IRunReporter
             summary = new
             {
                 total = summary.Repositories.Count,
-                upToDate = summary.Repositories.Count(item => item.Status == RepositoryStatus.UpToDate),
+                upToDate = summary.Repositories.Count(item => item.Status is
+                    RepositoryStatus.UpToDate or RepositoryStatus.NoChanges),
                 changed = summary.Repositories.Count(item => item.Status is
                     RepositoryStatus.FilesUpdated or RepositoryStatus.PullRequestCreated or
                     RepositoryStatus.PullRequestUpdated or RepositoryStatus.ChangesPending or
-                    RepositoryStatus.PullRequestRefreshed),
+                    RepositoryStatus.PullRequestRefreshed or RepositoryStatus.Merged),
                 pullRequests = summary.Repositories.Count(item => item.Status is
                     RepositoryStatus.PullRequestCreated or RepositoryStatus.PullRequestUpdated or
                     RepositoryStatus.PullRequestOpen or RepositoryStatus.PullRequestBehind or
+                    RepositoryStatus.PullRequestRefreshed or RepositoryStatus.Merged or
+                    RepositoryStatus.Outdated or RepositoryStatus.CiNotReady or
+                    RepositoryStatus.CiNotPassing or RepositoryStatus.PullRequestNotMergeable),
+                merged = summary.Repositories.Count(item => item.Status == RepositoryStatus.Merged),
+                noChanges = summary.Repositories.Count(item => item.Status == RepositoryStatus.NoChanges),
+                notReady = summary.Repositories.Count(item => item.Status is
+                    RepositoryStatus.PullRequestMissing or RepositoryStatus.Outdated or
+                    RepositoryStatus.CiNotReady or RepositoryStatus.CiNotPassing or
+                    RepositoryStatus.PullRequestNotMergeable or RepositoryStatus.PullRequestCreated or
+                    RepositoryStatus.PullRequestUpdated or RepositoryStatus.PullRequestRefreshed),
+                remediated = summary.Repositories.Count(item => item.Status is
+                    RepositoryStatus.PullRequestCreated or RepositoryStatus.PullRequestUpdated or
                     RepositoryStatus.PullRequestRefreshed),
                 blocked = summary.Repositories.Count(item => item.Status == RepositoryStatus.Blocked),
                 failed = summary.Repositories.Count(item => item.Status == RepositoryStatus.Failed)
@@ -43,6 +56,8 @@ internal sealed class JsonRunReporter : IRunReporter
                 repository.Repository,
                 repository.Target,
                 repository.Status,
+                repository.Reason,
+                repository.Detail,
                 changes = repository.Operations.Select(operation => new { operation.Path, operation.Kind }),
                 pullRequest = repository.PullRequest,
                 error = repository.Error

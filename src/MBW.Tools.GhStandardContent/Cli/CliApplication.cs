@@ -58,6 +58,7 @@ internal static class CliApplication
         AddValidateCommand(root, format, color, verbosity);
         AddRunCommand(root, RunMode.Check, format, color, verbosity);
         AddRunCommand(root, RunMode.Apply, format, color, verbosity);
+        AddRunCommand(root, RunMode.Merge, format, color, verbosity);
         return root;
     }
 
@@ -168,17 +169,37 @@ internal static class CliApplication
             DefaultValueFactory = result => EnvironmentDefaults.GetEnum(
                 result, EnvironmentDefaults.OrphanedFiles, OrphanPolicy.Error)
         };
+        Option<bool> allowUpdating = new("--allow-updating")
+        {
+            Description = "Allow merge to create or repair generated pull requests. A repaired PR is never merged in the same run."
+        };
 
-        Command command = new(mode == RunMode.Check ? "check" : "apply",
-            mode == RunMode.Check
-                ? "Read repositories and report pending changes without writing."
-                : "Apply standard content locally or through GitHub pull requests.");
+        Command command = new(
+            mode switch
+            {
+                RunMode.Check => "check",
+                RunMode.Apply => "apply",
+                RunMode.Merge => "merge",
+                _ => throw new ArgumentOutOfRangeException(nameof(mode))
+            },
+            mode switch
+            {
+                RunMode.Check => "Read repositories and report pending changes without writing.",
+                RunMode.Apply => "Apply standard content locally or through GitHub pull requests.",
+                RunMode.Merge => "Merge current generated pull requests after CI and mergeability checks pass.",
+                _ => throw new ArgumentOutOfRangeException(nameof(mode))
+            });
         command.Arguments.Add(config);
-        foreach (Option option in new Option[]
-                 {
-                     repositories, local, githubApi, proxy, parallelism, branch, author, email, labels,
-                     metaReference, orphanPolicy
-                 })
+        List<Option> commandOptions =
+        [
+            repositories, githubApi, proxy, parallelism, branch, author, email, labels,
+            metaReference, orphanPolicy
+        ];
+        if (mode != RunMode.Merge)
+            commandOptions.Insert(1, local);
+        if (mode == RunMode.Merge)
+            commandOptions.Add(allowUpdating);
+        foreach (Option option in commandOptions)
             command.Options.Add(option);
 
         command.SetAction(async (parseResult, token) =>
@@ -190,7 +211,7 @@ internal static class CliApplication
                 parseResult.GetValue(color),
                 parseResult.GetValue(verbosity),
                 parseResult.GetValue(repositories) ?? [],
-                parseResult.GetValue(local),
+                mode == RunMode.Merge ? null : parseResult.GetValue(local),
                 parseResult.GetRequiredValue(githubApi),
                 parseResult.GetValue(proxy),
                 parseResult.GetValue(parallelism),
@@ -199,7 +220,8 @@ internal static class CliApplication
                 parseResult.GetRequiredValue(email),
                 parseResult.GetValue(labels) ?? [],
                 parseResult.GetValue(metaReference),
-                parseResult.GetValue(orphanPolicy));
+                parseResult.GetValue(orphanPolicy),
+                mode == RunMode.Merge && parseResult.GetValue(allowUpdating));
             return await RunAsync(options, token);
         });
         root.Subcommands.Add(command);
@@ -216,7 +238,7 @@ internal static class CliApplication
     private static RunOptions Defaults(
         RunMode mode, string config, OutputFormat format, ColorMode color, OutputVerbosity verbosity) =>
         new(mode, config, format, color, verbosity, [], null, new Uri("https://api.github.com/"), null, 4,
-            "feature/auto-contents", "Auto Contents", "AutoContents@example.org", [], null, OrphanPolicy.Error);
+            "feature/auto-contents", "Auto Contents", "AutoContents@example.org", [], null, OrphanPolicy.Error, false);
 
     private static async Task<int> RunAsync(RunOptions options, CancellationToken cancellationToken)
     {

@@ -16,4 +16,5 @@ internal sealed record RunOptions(
     string CommitEmail,
     IReadOnlyList<string> Labels,
     string? MetaReference,
-    OrphanPolicy OrphanPolicy);
+    OrphanPolicy OrphanPolicy,
+    bool AllowUpdating = false);

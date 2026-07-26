@@ -67,6 +67,12 @@ Apply the changes through dedicated branches and pull requests:
 gh-standard-content apply repos.json
 ```
 
+Merge generated pull requests once their content and CI are current:
+
+```shell
+gh-standard-content merge repos.json
+```
+
 PowerShell users can set the token with `$env:GH_TOKEN = "github-token"`. `GITHUB_TOKEN` is accepted as a fallback. GitHub Enterprise also supports `GH_ENTERPRISE_TOKEN` and `GITHUB_ENTERPRISE_TOKEN`.
 
 ## Commands
@@ -83,17 +89,29 @@ Reads the selected repositories and returns the exact add, update, and delete pl
 
 Applies the calculated plan. GitHub mode creates or updates the configured branch and ensures an open pull request exists. When an existing generated branch is behind the default branch, it is rebuilt as one commit on the latest default commit and the existing PR is reused. No refresh is made when the default branch already contains the desired content. Local mode stages changed content before replacing files and writes metadata last.
 
-Useful options shared by `check` and `apply`:
+### `merge <CONFIG>`
+
+Checks each selected GitHub repository using the same content and pull-request assessment as `check` and `apply`.
+A PR is squash-merged only when it contains exactly the calculated changes, has every configured label, is current
+with the default branch, has a successful GitHub status-check rollup, and GitHub reports it as mergeable. Missing,
+pending, failing, and blocked states are reported without changing the PR.
+
+`merge --allow-updating` may create a missing PR or repair an outdated generated branch, unexpected PR changes,
+missing labels, or a branch behind the default branch. A repaired PR is never merged in that invocation; rerun after
+CI has completed. This makes a recurring automation loop converge safely through create/update, CI, and merge phases.
+
+Useful operational options:
 
 ```text
 -r, --repository <owner/name>  Select one or more configured repositories
---local <path>                 Use a local Git worktree instead of GitHub
+--local <path>                 Use a local Git worktree instead of GitHub (check/apply only)
 --branch <name>                Dedicated update branch
 --orphaned-files <policy>      error, keep, or delete (default: error)
 --parallelism <1-16>           Maximum concurrent GitHub repositories
 --meta-reference <text>        Set metadata reference; empty removes it
 --github-api <uri>             GitHub Enterprise API base URI
 --proxy <uri>                  Explicit HTTP proxy
+--allow-updating               Let merge create or repair PRs; never merges them in the same run
 ```
 
 Run any command with `--help` for its complete option reference.
@@ -138,15 +156,17 @@ Automation can request a deterministic JSON document:
 gh-standard-content check repos.json --format json
 ```
 
-The JSON contract includes `schemaVersion`, command/result fields, aggregate counts, repository statuses, file operations, pull-request details, and structured errors. File contents and credentials are never included.
+The JSON contract includes `schemaVersion`, command/result fields, aggregate counts, repository statuses, optional
+status reasons/details, file operations, pull-request head and merge SHAs, and structured errors. Merge aggregates
+include `merged`, `noChanges`, `notReady`, and `remediated`. File contents and credentials are never included.
 
 Exit codes are stable:
 
 | Code | Meaning |
 | ---: | --- |
-| 0 | Success, or check found no drift |
+| 0 | The command completed its contract; merge merged everything or found no changes |
 | 1 | Invalid invocation, configuration, or global preflight |
-| 2 | Check found pending changes |
+| 2 | Check found pending changes, or merge found/remediated repositories that are not yet merged |
 | 3 | One or more repositories failed or need an orphan decision |
 | 130 | Cancelled |
 
@@ -183,7 +203,10 @@ Repositories can append local UTF-8 text to these standard files:
 
 ## GitHub access
 
-The token needs read/write repository contents and pull-request access for private repositories. Updating workflow files may require additional workflow permission, depending on the token type. Requested labels must already exist in the target repository.
+The token needs repository contents and pull-request access for private repositories, plus check/status read access for
+`merge`. Write access is needed by `apply`, by `merge --allow-updating`, and to merge an eligible PR. Updating workflow
+files may require additional workflow permission, depending on the token type. Requested labels must already exist in
+the target repository.
 
 The update branch is tool-owned and may be force-updated from the latest default branch. Existing open PRs are reused; missing PRs are repaired on a later run if branch creation previously succeeded but PR creation failed.
 
