@@ -133,6 +133,7 @@ internal sealed class TextRunReporter : IRunReporter
             }
 
             _console.Write(table);
+            _console.MarkupLine(Conclusion(summary));
 
             if (_verbosity == OutputVerbosity.Detailed)
             {
@@ -154,6 +155,87 @@ internal sealed class TextRunReporter : IRunReporter
     {
         lock (_sync)
             _console.MarkupLine("[yellow]Operation cancelled.[/]");
+    }
+
+    internal static string Conclusion(RunSummary summary)
+    {
+        IReadOnlyList<RepositoryResult> results = summary.Repositories;
+        int Count(params RepositoryStatus[] statuses) => results.Count(result => statuses.Contains(result.Status));
+
+        int problems = Count(RepositoryStatus.Failed, RepositoryStatus.Blocked);
+        if (problems > 0)
+            return $"[red]✗ {Plural(problems, "repository")} could not be processed. See Details above.[/]";
+
+        return summary.Command switch
+        {
+            RunMode.Check => CheckConclusion(),
+            RunMode.Apply => ApplyConclusion(),
+            RunMode.Merge => MergeConclusion(),
+            _ => NoChanges()
+        };
+
+        string CheckConclusion()
+        {
+            int pending = Count(RepositoryStatus.ChangesPending);
+            if (pending > 0)
+            {
+                string action = results.Any(result => result.Target == "local")
+                    ? "write them to the worktree"
+                    : "open pull requests";
+                return $"[yellow]△ Changes needed in {Plural(pending, "repository")}. Run 'apply' to {action}.[/]";
+            }
+
+            int behind = Count(RepositoryStatus.PullRequestBehind);
+            if (behind > 0)
+                return $"[yellow]↗ {Be(behind, "pull request")} behind the default branch. Run 'apply' to refresh.[/]";
+
+            int open = Count(RepositoryStatus.PullRequestOpen);
+            if (open > 0)
+                return $"[blue]↗ {Be(open, "pull request")} open. Run 'merge' once CI passes.[/]";
+
+            return NoChanges();
+        }
+
+        string ApplyConclusion()
+        {
+            int open = Count(RepositoryStatus.PullRequestCreated, RepositoryStatus.PullRequestUpdated,
+                RepositoryStatus.PullRequestRefreshed, RepositoryStatus.PullRequestOpen);
+            if (open > 0)
+                return $"[cyan]↗ {Be(open, "pull request")} open. Run 'merge' once CI passes.[/]";
+
+            int updated = Count(RepositoryStatus.FilesUpdated);
+            if (updated > 0)
+                return $"[cyan]✓ Files updated in {Plural(updated, "repository")}. Review and commit the changes.[/]";
+
+            return NoChanges();
+        }
+
+        string MergeConclusion()
+        {
+            int attention = Count(RepositoryStatus.CiNotPassing, RepositoryStatus.PullRequestNotMergeable);
+            if (attention > 0)
+                return $"[red]! Manual attention needed for {Plural(attention, "pull request")}. See Details above.[/]";
+
+            int repairable = Count(RepositoryStatus.PullRequestMissing, RepositoryStatus.Outdated);
+            if (repairable > 0)
+                return $"[yellow]↻ {Be(repairable, "pull request")} missing or outdated. Run 'merge --allow-updating' to repair.[/]";
+
+            int waiting = Count(RepositoryStatus.CiNotReady, RepositoryStatus.PullRequestCreated,
+                RepositoryStatus.PullRequestUpdated, RepositoryStatus.PullRequestRefreshed);
+            if (waiting > 0)
+                return $"[yellow]◷ {Be(waiting, "pull request")} waiting for CI. Rerun 'merge' later.[/]";
+
+            int merged = Count(RepositoryStatus.Merged);
+            return merged > 0
+                ? $"[green]✓ {Plural(merged, "pull request")} merged. No further changes needed.[/]"
+                : NoChanges();
+        }
+
+        static string NoChanges() => "[green]✓ No changes needed.[/]";
+        static string Be(int count, string noun) => $"{Plural(count, noun)} {(count == 1 ? "is" : "are")}";
+        static string Plural(int count, string noun) => count == 1
+            ? $"1 {noun}"
+            : noun.EndsWith('y') ? $"{count} {noun[..^1]}ies" : $"{count} {noun}s";
     }
 
     private static string StatusMarkup(RepositoryResult result) => result.Status switch

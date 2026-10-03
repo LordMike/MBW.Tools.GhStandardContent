@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using MBW.Tools.GhStandardContent.Cli;
@@ -312,6 +312,33 @@ public sealed class CliAndReporterTests
         {
             Console.SetOut(original);
         }
+    }
+
+    [Theory]
+    [InlineData(RunMode.Check, "github", "No changes needed.", RepositoryStatus.UpToDate, RepositoryStatus.Skipped)]
+    [InlineData(RunMode.Check, "github", "2 repositories could not be processed. See Details above.", RepositoryStatus.Failed, RepositoryStatus.Blocked, RepositoryStatus.ChangesPending)]
+    [InlineData(RunMode.Check, "github", "Changes needed in 2 repositories. Run 'apply' to open pull requests.", RepositoryStatus.ChangesPending, RepositoryStatus.ChangesPending)]
+    [InlineData(RunMode.Check, "local", "Run 'apply' to write them to the worktree.", RepositoryStatus.ChangesPending)]
+    [InlineData(RunMode.Check, "github", "1 pull request is behind the default branch. Run 'apply' to refresh.", RepositoryStatus.PullRequestBehind, RepositoryStatus.PullRequestOpen)]
+    [InlineData(RunMode.Check, "github", "1 pull request is open. Run 'merge' once CI passes.", RepositoryStatus.PullRequestOpen, RepositoryStatus.UpToDate)]
+    [InlineData(RunMode.Apply, "github", "2 pull requests are open. Run 'merge' once CI passes.", RepositoryStatus.PullRequestCreated, RepositoryStatus.PullRequestRefreshed)]
+    [InlineData(RunMode.Apply, "local", "Files updated in 1 repository. Review and commit the changes.", RepositoryStatus.FilesUpdated)]
+    [InlineData(RunMode.Apply, "github", "No changes needed.", RepositoryStatus.UpToDate)]
+    [InlineData(RunMode.Merge, "github", "Manual attention needed for 1 pull request. See Details above.", RepositoryStatus.CiNotPassing, RepositoryStatus.PullRequestMissing)]
+    [InlineData(RunMode.Merge, "github", "Run 'merge --allow-updating' to repair.", RepositoryStatus.Outdated, RepositoryStatus.CiNotReady)]
+    [InlineData(RunMode.Merge, "github", "2 pull requests are waiting for CI. Rerun 'merge' later.", RepositoryStatus.CiNotReady, RepositoryStatus.PullRequestCreated)]
+    [InlineData(RunMode.Merge, "github", "2 pull requests merged. No further changes needed.", RepositoryStatus.Merged, RepositoryStatus.Merged, RepositoryStatus.NoChanges)]
+    [InlineData(RunMode.Merge, "github", "No changes needed.", RepositoryStatus.NoChanges)]
+    public void ConclusionSuggestsMostRelevantNextStep(
+        object mode, string target, string expected, params object[] statuses)
+    {
+        // Enum parameters would be less accessible than this public test method.
+        RunSummary summary = new((RunMode)mode, "success",
+            statuses.Select((status, index) =>
+                new RepositoryResult($"owner/repo{index}", target, (RepositoryStatus)status, [])).ToArray(),
+            []);
+
+        Assert.Contains(expected, TextRunReporter.Conclusion(summary), StringComparison.Ordinal);
     }
 
     [Fact]
